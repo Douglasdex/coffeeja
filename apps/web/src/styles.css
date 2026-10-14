@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@import "@coffeeja/ui/theme.css";
+@source "../../../packages/ui/src";
+
+/* Respeita a área segura em celulares com notch / barra de gestos */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

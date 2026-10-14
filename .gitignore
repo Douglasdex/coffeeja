@@ -1,0 +1,16 @@
+node_modules/
+dist/
+bin/
+obj/
+.vs/
+*.user
+storage/
+.env
+.env.*
+!.env.example
+
+# Local
+appsettings.Development.json
+# Material de referência (não publicar)
+*.docx
+img*.jpg
