@@ -2,6 +2,7 @@ import { api } from "@coffeeja/api-client";
 import { cn } from "@coffeeja/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, ClipboardList, Coffee, FileText, Home, Inbox, LogOut, Moon, Plus, Send, ShieldCheck, Sun, User, Utensils, type LucideIcon } from "lucide-react";
+import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useTema } from "../lib/theme";
@@ -43,6 +44,18 @@ export function AppShell() {
 
   const { data: notifs } = useQuery({ queryKey: ["notificacoes"], queryFn: api.notificacoes.listar, refetchInterval: 60_000 });
   const naoLidas = notifs?.filter((n) => !n.lida).length ?? 0;
+  const dash = useQuery<{ mensagensNaoLidas: number }>({
+    queryKey: ["dash"],
+    queryFn: () => (usuario?.papel === "Fornecedor" ? api.dashboard.fornecedor() : api.dashboard.contratante()),
+    enabled: usuario?.papel !== "Admin",
+    refetchInterval: 60_000,
+  });
+  const msgs = dash.data?.mensagensNaoLidas ?? 0;
+  useEffect(() => {
+    const total = naoLidas + msgs;
+    document.title = total > 0 ? `(${total}) CoffeeJá` : "CoffeeJá";
+  }, [naoLidas, msgs]);
+  const selo = (to: string) => (msgs > 0 && (to === "/contratante/demandas" || to === "/fornecedor/propostas") ? msgs : 0);
 
   const Acoes = (
     <div className="flex items-center gap-2">
@@ -67,6 +80,7 @@ export function AppShell() {
             <NavLink key={to} to={to} end={end}
               className={({ isActive }) => cn("flex h-11 items-center gap-3 rounded-full px-4 text-sm font-medium transition", isActive ? "bg-accent-soft text-accent" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
               <Icon className="h-5 w-5" />{label === "Nova" ? "Nova demanda" : label}
+              {selo(to) > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">{selo(to)}</span>}
             </NavLink>
           ))}
         </nav>
@@ -94,7 +108,7 @@ export function AppShell() {
                 <NavLink to={to} end={end} className={({ isActive }) => cn("flex flex-col items-center gap-0.5 py-1.5 text-[11px] font-medium", isActive ? "text-primary" : "text-muted-foreground")}>
                   {destaque
                     ? <span className="-mt-6 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background"><Icon className="h-6 w-6" /></span>
-                    : <Icon className="h-5 w-5" />}
+                    : <span className="relative"><Icon className="h-5 w-5" />{selo(to) > 0 && <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">{selo(to)}</span>}</span>}
                   {label}
                 </NavLink>
               </li>

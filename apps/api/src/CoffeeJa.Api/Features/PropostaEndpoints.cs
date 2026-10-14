@@ -15,10 +15,10 @@ public record MensagemRequest(string Texto);
 
 public record PropostaDto(Guid Id, Guid DemandaId, Guid FornecedorId, string Fornecedor, double NotaMedia, int TotalAvaliacoes, bool Fundador,
     decimal ValorTotal, decimal ValorPorPessoa, string Cardapio, string? Observacao, int Versao, StatusProposta Status, string? AjusteSolicitado,
-    double Score, bool MelhorCustoBeneficio, DateTime CriadoEm);
+    double Score, bool MelhorCustoBeneficio, DateTime CriadoEm, int MensagensNaoLidas = 0, bool AguardandoMinhaResposta = false);
 
 public record MinhaPropostaDto(Guid Id, Guid DemandaId, string Titulo, DateOnly DataEvento, string Cidade, int NumeroPessoas, decimal ValorTotal,
-    int Versao, StatusProposta Status, string? AjusteSolicitado, StatusDemanda StatusDemanda, Guid? PedidoId, DateTime CriadoEm);
+    int Versao, StatusProposta Status, string? AjusteSolicitado, StatusDemanda StatusDemanda, Guid? PedidoId, DateTime CriadoEm, int MensagensNaoLidas = 0, bool AguardandoMinhaResposta = false);
 
 public record MensagemDto(Guid Id, Guid RemetenteId, bool Minha, string Texto, DateTime CriadoEm);
 
@@ -61,7 +61,14 @@ public static partial class PropostaEndpoints
             if (d is null) return Results.NotFound();
             var props = await db.Propostas.AsNoTracking().Include(p => p.Fornecedor)
                 .Where(p => p.DemandaId == demandaId && p.Status != StatusProposta.Retirada).ToListAsync();
-            return Results.Ok(Ranquear(props, d.NumeroPessoas));
+            var uid = u.UsuarioId();
+            var naoLidas = await Conversas.PorPropostaAsync(db, uid, cid, null);
+            var aguardando = await Conversas.AguardandoRespostaAsync(db, uid, props.Select(p => p.Id).ToList());
+            return Results.Ok(Ranquear(props, d.NumeroPessoas).Select(p => p with
+            {
+                MensagensNaoLidas = naoLidas.GetValueOrDefault(p.Id),
+                AguardandoMinhaResposta = aguardando.Contains(p.Id) && p.Status is not (StatusProposta.Recusada or StatusProposta.Retirada or StatusProposta.Expirada),
+            }).ToList());
         }).WithTags("Propostas").RequireAuthorization(Politicas.Contratante);
 
         var g = app.MapGroup("/api/propostas").WithTags("Propostas").RequireAuthorization();
@@ -69,10 +76,18 @@ public static partial class PropostaEndpoints
         g.MapGet("/minhas", async (ClaimsPrincipal u, CoffeeJaDbContext db) =>
         {
             var fid = u.FornecedorId();
-            return await db.Propostas.AsNoTracking().Where(p => p.FornecedorId == fid).OrderByDescending(p => p.CriadoEm)
+            var lista = await db.Propostas.AsNoTracking().Where(p => p.FornecedorId == fid).OrderByDescending(p => p.CriadoEm)
                 .Select(p => new MinhaPropostaDto(p.Id, p.DemandaId, p.Demanda.Titulo, DateOnly.FromDateTime(p.Demanda.DataEvento), p.Demanda.Cidade,
                     p.Demanda.NumeroPessoas, p.ValorTotal, p.Versao, p.Status, p.AjusteSolicitado, p.Demanda.Status,
-                    db.Pedidos.Where(x => x.PropostaId == p.Id).Select(x => (Guid?)x.Id).FirstOrDefault(), p.CriadoEm)).ToListAsync();
+                    db.Pedidos.Where(x => x.PropostaId == p.Id).Select(x => (Guid?)x.Id).FirstOrDefault(), p.CriadoEm, 0, false)).ToListAsync();
+            var uid = u.UsuarioId();
+            var naoLidas = await Conversas.PorPropostaAsync(db, uid, null, fid);
+            var aguardando = await Conversas.AguardandoRespostaAsync(db, uid, lista.Select(p => p.Id).ToList());
+            return lista.Select(p => p with
+            {
+                MensagensNaoLidas = naoLidas.GetValueOrDefault(p.Id),
+                AguardandoMinhaResposta = aguardando.Contains(p.Id) && p.Status is not (StatusProposta.Recusada or StatusProposta.Retirada or StatusProposta.Expirada),
+            }).ToList();
         }).RequireAuthorization(Politicas.Fornecedor);
 
         // Contratante pede ajuste ("troque o suco, adicione mais 10 pães de queijo...")
@@ -164,6 +179,10 @@ public static partial class PropostaEndpoints
             if (!await ParticipaAsync(db, id, u)) return Results.NotFound();
             var uid = u.UsuarioId();
             var msgs = await db.Mensagens.AsNoTracking().Where(m => m.PropostaId == id).OrderBy(m => m.CriadoEm).ToListAsync();
+            // Abrir a conversa marca como lida para quem está lendo.
+            var agora = DateTime.UtcNow;
+            if (u.FornecedorId() is not null) await db.Propostas.Where(p => p.Id == id).ExecuteUpdateAsync(s => s.SetProperty(p => p.FornecedorLeuEm, agora));
+            else await db.Propostas.Where(p => p.Id == id).ExecuteUpdateAsync(s => s.SetProperty(p => p.ContratanteLeuEm, agora));
             return Results.Ok(msgs.Select(m => new MensagemDto(m.Id, m.RemetenteId, m.RemetenteId == uid, m.Texto, m.CriadoEm)));
         });
 

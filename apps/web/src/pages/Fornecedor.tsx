@@ -1,10 +1,10 @@
 import { api, type Cardapio, type Estilo, type MinhaProposta } from "@coffeeja/api-client";
 import { Badge, Button, Card, CardContent, Chip, EmptyState, Field, Input, PageTitle, Select, Stars, StatCard, Textarea } from "@coffeeja/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Clock, FileText, Inbox, LogOut, Percent, Send, Star, Trash2, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clock, FileText, Inbox, LogOut, MessageCircle, Percent, Send, Star, Trash2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Carregando, DemandaCard, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
+import { Carregando, ChatSinal, DemandaCard, Descartaveis, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
 import { LocationPicker, type Local } from "../components/LocationPicker";
 import { PushToggle } from "../components/PushToggle";
 import { PropostaChat } from "../components/PropostaChat";
@@ -37,6 +37,14 @@ export function FornecedorInicio() {
           <StatCard label="Faturamento" value={moeda(d.faturamento)} ring={d.faturamento > 0 ? 1 : 0} icon={<Wallet className="h-5 w-5" />} color="var(--success)" />
           <StatCard label="Nota média" value={d.totalAvaliacoes ? d.notaMedia.toFixed(1) : "—"} ring={d.notaMedia / 5} icon={<Star className="h-5 w-5" />} color="var(--lavender)" />
         </div>
+      )}
+      {d && d.mensagensNaoLidas > 0 && (
+        <Link to="/fornecedor/propostas">
+          <div className="flex items-center gap-3 rounded-2xl bg-primary-soft p-4 text-sm font-medium text-primary">
+            <MessageCircle className="h-5 w-5 shrink-0" />
+            {d.mensagensNaoLidas} {d.mensagensNaoLidas === 1 ? "mensagem nova" : "mensagens novas"} de clientes. Toque para responder.
+          </div>
+        </Link>
       )}
       {d && d.propostasEmAjuste > 0 && (
         <Link to="/fornecedor/propostas"><div className="flex items-center gap-3 rounded-2xl bg-primary-soft p-4 text-sm font-medium text-primary"><AlertTriangle className="h-5 w-5" />{d.propostasEmAjuste} {d.propostasEmAjuste === 1 ? "cliente pediu" : "clientes pediram"} ajuste na proposta.</div></Link>
@@ -109,7 +117,7 @@ export function FornecedorDemanda() {
           <div>{dataLonga(x.dataEvento)} às {hora(x.horaInicio)} · <b className="text-foreground">{x.numeroPessoas} pessoas</b> · {labelEstilo[x.estilo]}</div>
           <div>{x.cidade}/{x.uf} {x.endereco ? `— ${x.endereco}` : "· endereço exato liberado após a contratação"}</div>
         </div>
-        <div className="flex flex-wrap gap-2"><Restricoes mask={x.restricoes} /></div>
+        <div className="flex flex-wrap gap-2"><Restricoes mask={x.restricoes} /><Descartaveis mask={x.descartaveis} /></div>
         {x.observacoes && <p className="rounded-xl bg-muted/60 p-3 text-sm">{x.observacoes}</p>}
       </CardContent></Card>
 
@@ -151,7 +159,7 @@ export function FornecedorPropostas() {
 function MinhaPropostaCard({ p }: { p: MinhaProposta }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [aberto, setAberto] = useState<null | "revisar" | "chat">(p.status === "EmAjuste" ? "revisar" : null);
+  const [aberto, setAberto] = useState<null | "revisar" | "chat">(p.mensagensNaoLidas > 0 ? "chat" : p.status === "EmAjuste" ? "revisar" : null);
   const [valor, setValor] = useState(String(p.valorTotal).replace(".", ","));
   const [cardapio, setCardapio] = useState("");
   const ativa = p.status === "Enviada" || p.status === "EmAjuste";
@@ -169,12 +177,12 @@ function MinhaPropostaCard({ p }: { p: MinhaProposta }) {
         <div className="min-w-0"><div className="truncate font-semibold">{p.titulo}</div><div className="text-sm text-muted-foreground">{dataCurta(p.dataEvento)} · {p.cidade} · {p.numeroPessoas} pessoas</div></div>
         <div className="text-right"><div className="font-bold">{moeda(p.valorTotal)}</div>{p.versao > 1 && <div className="text-xs text-muted-foreground">v{p.versao}</div>}</div>
       </div>
-      <div className="flex flex-wrap items-center gap-2"><StatusPropostaBadge s={p.status} /></div>
+      <div className="flex flex-wrap items-center gap-2"><StatusPropostaBadge s={p.status} /><ChatSinal naoLidas={p.mensagensNaoLidas} aguardando={p.aguardandoMinhaResposta} /></div>
       {p.status === "EmAjuste" && p.ajusteSolicitado && <p className="rounded-xl bg-warning-soft p-3 text-sm"><b>O cliente pediu:</b> {p.ajusteSolicitado}</p>}
       <div className="flex flex-wrap gap-2">
         {p.pedidoId && <Button asChild><Link to={`/fornecedor/pedidos/${p.pedidoId}`}>Abrir pedido</Link></Button>}
         {ativa && <Button variant="outline" onClick={() => setAberto(aberto === "revisar" ? null : "revisar")}>Atualizar proposta</Button>}
-        {p.status !== "Recusada" && p.status !== "Retirada" && <Button variant="ghost" onClick={() => setAberto(aberto === "chat" ? null : "chat")}>Conversar</Button>}
+        {p.status !== "Recusada" && p.status !== "Retirada" && <Button variant="ghost" onClick={() => setAberto(aberto === "chat" ? null : "chat")}>Conversar{p.mensagensNaoLidas > 0 && <span className="ml-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">{p.mensagensNaoLidas}</span>}</Button>}
         {ativa && <Button variant="ghost" className="text-destructive" onClick={() => retirar.mutate()} disabled={retirar.isPending}>Retirar</Button>}
       </div>
       {aberto === "revisar" && (

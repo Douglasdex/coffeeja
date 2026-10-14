@@ -14,13 +14,18 @@ export function PropostaChat({ propostaId, fechado }: { propostaId: string; fech
   const fim = useRef<HTMLDivElement>(null);
   const { entrar, sair } = useRealtime();
   useEffect(() => { entrar(propostaId); return () => sair(propostaId); }, [propostaId, entrar, sair]);
-  const { data } = useQuery({ queryKey: ["mensagens", propostaId], queryFn: () => api.propostas.mensagens(propostaId), refetchInterval: 60_000 });
+  const { data, dataUpdatedAt } = useQuery({ queryKey: ["mensagens", propostaId], queryFn: () => api.propostas.mensagens(propostaId), refetchInterval: 60_000 });
   const enviar = useMutation({
     mutationFn: () => api.propostas.enviarMensagem(propostaId, texto.trim()),
     onSuccess: () => { setTexto(""); void qc.invalidateQueries({ queryKey: ["mensagens", propostaId] }); },
     onError: (e) => toast(e.message, true),
   });
   useEffect(() => { fim.current?.scrollIntoView({ block: "nearest" }); }, [data?.length]);
+  // A leitura é registrada no servidor ao buscar as mensagens; atualiza os contadores exibidos nas demais telas.
+  useEffect(() => {
+    if (!dataUpdatedAt) return;
+    for (const k of ["dash", "propostas", "minhas-propostas", "demandas", "abertas"]) void qc.invalidateQueries({ queryKey: [k] });
+  }, [dataUpdatedAt, qc]);
 
   return (
     <div className="space-y-3">

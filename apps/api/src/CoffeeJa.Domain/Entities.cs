@@ -75,6 +75,7 @@ public class Demanda : Entidade
     public double Longitude { get; set; }
     public int NumeroPessoas { get; set; }
     public Restricoes Restricoes { get; set; }
+    public Descartaveis Descartaveis { get; set; }
     public EstiloCoffee Estilo { get; set; }
     public string? Observacoes { get; set; }
     public DateTime? PrazoPropostas { get; set; }
@@ -96,6 +97,9 @@ public class Proposta : Entidade
     public StatusProposta Status { get; set; } = StatusProposta.Enviada;
     public string? AjusteSolicitado { get; set; }
     public DateTime? AtualizadoEm { get; set; }
+    /// <summary>Até quando cada parte já leu o chat (base do indicador de mensagens não lidas).</summary>
+    public DateTime? ContratanteLeuEm { get; set; }
+    public DateTime? FornecedorLeuEm { get; set; }
 
     public decimal ValorPorPessoa => Demanda is { NumeroPessoas: > 0 } ? Math.Round(ValorTotal / Demanda.NumeroPessoas, 2) : 0;
 }

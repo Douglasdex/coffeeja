@@ -2,6 +2,18 @@ namespace CoffeeJa.Domain;
 
 public enum Papel { Contratante = 1, Fornecedor = 2, Admin = 3 }
 
+/// <summary>Itens descartáveis que o buffet deve fornecer.</summary>
+[Flags]
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonNumberEnumConverter<Descartaveis>))]
+public enum Descartaveis
+{
+    Nenhum = 0,
+    Pratos = 1,
+    Copos = 2,
+    Talheres = 4,
+    Guardanapos = 8,
+}
+
 public enum EstiloCoffee { Economico = 1, Padrao = 2, Premium = 3 }
 
 [Flags]

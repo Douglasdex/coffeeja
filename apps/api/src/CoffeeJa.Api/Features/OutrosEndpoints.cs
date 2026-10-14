@@ -58,7 +58,8 @@ public static class OutrosEndpoints
                 var pedidos = await db.Pedidos.CountAsync(p => p.ContratanteId == cid);
                 var gasto = await db.Pedidos.Where(p => p.ContratanteId == cid && p.Status != StatusPedido.Cancelado).SumAsync(p => (decimal?)p.Valor) ?? 0;
                 var semNota = await db.Pedidos.CountAsync(p => p.ContratanteId == cid && p.NotaFiscalArquivo == null && p.Status != StatusPedido.Cancelado);
-                return Results.Ok(new { demandasAbertas = abertas, propostasRecebidas = propostas, pedidos, gastoTotal = gasto, pedidosSemNota = semNota });
+                var msgs = await Conversas.NaoLidas(db, u.UsuarioId(), cid, null).CountAsync();
+                return Results.Ok(new { demandasAbertas = abertas, propostasRecebidas = propostas, pedidos, gastoTotal = gasto, pedidosSemNota = semNota, mensagensNaoLidas = msgs });
             }
             if (fid is not null)
             {
@@ -68,9 +69,10 @@ public static class OutrosEndpoints
                 var emAjuste = await db.Propostas.CountAsync(p => p.FornecedorId == fid && p.Status == StatusProposta.EmAjuste);
                 var faturamento = await db.Pedidos.Where(p => p.FornecedorId == fid && p.Status != StatusPedido.Cancelado).SumAsync(p => (decimal?)p.Valor) ?? 0;
                 var semNota = await db.Pedidos.CountAsync(p => p.FornecedorId == fid && p.NotaFiscalArquivo == null && p.Status != StatusPedido.Cancelado);
+                var msgs = await Conversas.NaoLidas(db, u.UsuarioId(), null, fid).CountAsync();
                 return Results.Ok(new
                 {
-                    propostasEnviadas = enviadas, propostasAceitas = aceitas, propostasEmAjuste = emAjuste,
+                    mensagensNaoLidas = msgs, propostasEnviadas = enviadas, propostasAceitas = aceitas, propostasEmAjuste = emAjuste,
                     taxaConversao = enviadas == 0 ? 0 : Math.Round(100.0 * aceitas / enviadas, 1),
                     faturamento, notaMedia = f.NotaMedia, totalAvaliacoes = f.TotalAvaliacoes, pedidosSemNota = semNota, aprovado = f.Aprovado,
                 });

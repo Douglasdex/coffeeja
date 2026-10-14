@@ -54,7 +54,13 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Politicas.Fornecedor, p => p.RequireRole(nameof(Papel.Fornecedor)))
     .AddPolicy(Politicas.Admin, p => p.RequireRole(nameof(Papel.Admin)));
 
-builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    // Enums [Flags] viajam como número (bitmask); os demais, como texto. Conversores específicos vêm antes do genérico.
+    o.SerializerOptions.Converters.Add(new JsonNumberEnumConverter<Restricoes>());
+    o.SerializerOptions.Converters.Add(new JsonNumberEnumConverter<Descartaveis>());
+    o.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(plataforma.Origens).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));

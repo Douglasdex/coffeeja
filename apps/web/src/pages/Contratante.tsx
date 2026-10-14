@@ -1,10 +1,10 @@
-import { api, type DemandaResumo, type Estilo, type Proposta } from "@coffeeja/api-client";
+import { Descartavel, api, descartavelLabels, type DemandaResumo, type Estilo, type Proposta } from "@coffeeja/api-client";
 import { Badge, Button, Card, CardContent, Chip, EmptyState, Field, Input, PageTitle, Select, Stars, StatCard, Textarea, cn } from "@coffeeja/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, ClipboardList, CreditCard, FileText, Inbox, MessageCircle, Minus, Plus, Sparkles, Trophy, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Carregando, DemandaCard, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
+import { Carregando, ChatSinal, DemandaCard, Descartaveis, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
 import { LocationPicker, localValido, localVazio, type Local } from "../components/LocationPicker";
 import { PushToggle } from "../components/PushToggle";
 import { PropostaChat } from "../components/PropostaChat";
@@ -40,6 +40,15 @@ export function ContratanteInicio() {
           <StatCard label="Pedidos" value={d.pedidos} ring={Math.min(1, d.pedidos / 20)} icon={<FileText className="h-5 w-5" />} color="var(--lavender)" />
           <StatCard label="Total contratado" value={moeda(d.gastoTotal)} ring={d.gastoTotal > 0 ? 1 : 0} icon={<Wallet className="h-5 w-5" />} color="var(--success)" />
         </div>
+      )}
+
+      {d && d.mensagensNaoLidas > 0 && (
+        <Link to="/contratante/demandas">
+          <div className="flex items-center gap-3 rounded-2xl bg-primary-soft p-4 text-sm font-medium text-primary">
+            <MessageCircle className="h-5 w-5 shrink-0" />
+            {d.mensagensNaoLidas} {d.mensagensNaoLidas === 1 ? "mensagem nova" : "mensagens novas"} dos buffets. Toque para responder.
+          </div>
+        </Link>
       )}
 
       {d && d.pedidosSemNota > 0 && (
@@ -111,6 +120,7 @@ export function NovaDemanda() {
   const [pessoas, setPessoas] = useState(20);
   const [restr, setRestr] = useState(0);
   const [estilo, setEstilo] = useState<Estilo>("Padrao");
+  const [descartaveis, setDescartaveis] = useState(0);
   const [obs, setObs] = useState("");
   const [prazo, setPrazo] = useState("24");
 
@@ -124,7 +134,7 @@ export function NovaDemanda() {
   const criar = useMutation({
     mutationFn: () => api.demandas.criar({
       titulo: titulo.trim(), dataEvento: data, horaInicio: horaIni + ":00", endereco: local.endereco, cidade: local.cidade, uf: local.uf,
-      latitude: local.latitude!, longitude: local.longitude!, numeroPessoas: pessoas, restricoes: restr, estilo, observacoes: obs || undefined,
+      latitude: local.latitude!, longitude: local.longitude!, numeroPessoas: pessoas, restricoes: restr, descartaveis, estilo, observacoes: obs || undefined,
       prazoPropostas: prazo ? new Date(Date.now() + Number(prazo) * 3600_000).toISOString() : null,
     }),
     onSuccess: (r) => {
@@ -177,6 +187,19 @@ export function NovaDemanda() {
             <p className="text-xs text-muted-foreground">Só informe o que houver. Os buffets verão apenas as categorias, nunca nomes.</p>
           </div>
           <div className="space-y-2">
+            <div className="text-sm font-medium">Precisa de itens descartáveis?</div>
+            <div className="flex gap-2">
+              <Chip active={descartaveis === 0} onClick={() => setDescartaveis(0)}>Não, já temos</Chip>
+              <Chip active={descartaveis !== 0} onClick={() => descartaveis === 0 && setDescartaveis(Object.values(Descartavel).reduce((a, b) => a | b, 0))}>Sim, o buffet fornece</Chip>
+            </div>
+            {descartaveis !== 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {Object.values(Descartavel).map((b) => <Chip key={b} active={(descartaveis & b) === b} onClick={() => setDescartaveis(descartaveis ^ b)}>{descartavelLabels[b]}</Chip>)}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Pratos, copos, talheres e guardanapos. Os buffets consideram isso no valor da proposta.</p>
+          </div>
+          <div className="space-y-2">
             <div className="text-sm font-medium">Estilo</div>
             <div className="grid gap-2 sm:grid-cols-3">
               {estilos.map((e) => (
@@ -197,6 +220,7 @@ export function NovaDemanda() {
             <dt className="text-muted-foreground">Pessoas</dt><dd className="font-medium">{pessoas}</dd>
             <dt className="text-muted-foreground">Estilo</dt><dd className="font-medium">{labelEstilo[estilo]}</dd>
             <dt className="text-muted-foreground">Restrições</dt><dd className="flex flex-wrap gap-1"><Restricoes mask={restr} />{restr === 0 && "Nenhuma"}</dd>
+            <dt className="text-muted-foreground">Descartáveis</dt><dd className="flex flex-wrap gap-1">{descartaveis === 0 ? "Não" : <Descartaveis mask={descartaveis} />}</dd>
           </dl>
           <Field label="Prazo para receber propostas"><Select value={prazo} onChange={(e) => setPrazo(e.target.value)}>{prazos.map((p) => <option key={p.v} value={p.v}>{p.l}</option>)}</Select></Field>
           <Field label="Observações (opcional)" hint="Ex.: copos descartáveis, acesso pela portaria B, montagem 30 min antes"><Textarea value={obs} onChange={(e) => setObs(e.target.value)} maxLength={2000} /></Field>
@@ -242,7 +266,7 @@ export function ContratanteDemanda() {
           <div>{dataLonga(x.dataEvento)} às {hora(x.horaInicio)} · {x.numeroPessoas} pessoas · {labelEstilo[x.estilo]}</div>
           <div>{x.endereco} — {x.cidade}/{x.uf}</div>
         </div>
-        <div className="flex flex-wrap gap-2"><Restricoes mask={x.restricoes} /></div>
+        <div className="flex flex-wrap gap-2"><Restricoes mask={x.restricoes} /><Descartaveis mask={x.descartaveis} /></div>
         {x.observacoes && <p className="rounded-xl bg-muted/60 p-3 text-sm">{x.observacoes}</p>}
         {x.pedidoId && <Button asChild><Link to={`/contratante/pedidos/${x.pedidoId}`}>Ver pedido</Link></Button>}
       </CardContent></Card>
@@ -265,7 +289,7 @@ export function ContratanteDemanda() {
 function PropostaCard({ p, demandaAberta, onAceita }: { p: Proposta; demandaAberta: boolean; onAceita: (pedidoId: string) => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [modo, setModo] = useState<null | "ajuste" | "chat" | "aceitar">(null);
+  const [modo, setModo] = useState<null | "ajuste" | "chat" | "aceitar">(p.mensagensNaoLidas > 0 ? "chat" : null);
   const [msg, setMsg] = useState("");
   const inativa = p.status === "Recusada" || p.status === "Retirada" || p.status === "Expirada";
 
@@ -289,14 +313,14 @@ function PropostaCard({ p, demandaAberta, onAceita }: { p: Proposta; demandaAber
         </div>
         <p className="whitespace-pre-wrap rounded-xl bg-muted/60 p-3 text-sm">{p.cardapio}</p>
         {p.observacao && <p className="text-sm text-muted-foreground">{p.observacao}</p>}
-        <div className="flex flex-wrap items-center gap-2"><StatusPropostaBadge s={p.status} />{p.versao > 1 && <Badge>versão {p.versao}</Badge>}</div>
+        <div className="flex flex-wrap items-center gap-2"><StatusPropostaBadge s={p.status} />{p.versao > 1 && <Badge>versão {p.versao}</Badge>}<ChatSinal naoLidas={p.mensagensNaoLidas} aguardando={p.aguardandoMinhaResposta} /></div>
         {p.status === "EmAjuste" && p.ajusteSolicitado && <p className="rounded-xl bg-warning-soft p-3 text-sm"><b>Você pediu:</b> {p.ajusteSolicitado}</p>}
 
         {!inativa && (
           <div className="flex flex-wrap gap-2">
             {demandaAberta && p.status === "Enviada" && <Button onClick={() => setModo(modo === "aceitar" ? null : "aceitar")}><Check className="h-4 w-4" />Aceitar</Button>}
             {demandaAberta && p.status !== "Aceita" && <Button variant="outline" onClick={() => setModo(modo === "ajuste" ? null : "ajuste")}>Pedir ajuste</Button>}
-            <Button variant="ghost" onClick={() => setModo(modo === "chat" ? null : "chat")}><MessageCircle className="h-4 w-4" />Conversar</Button>
+            <Button variant="ghost" onClick={() => setModo(modo === "chat" ? null : "chat")}><MessageCircle className="h-4 w-4" />Conversar{p.mensagensNaoLidas > 0 && <span className="ml-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">{p.mensagensNaoLidas}</span>}</Button>
           </div>
         )}
 

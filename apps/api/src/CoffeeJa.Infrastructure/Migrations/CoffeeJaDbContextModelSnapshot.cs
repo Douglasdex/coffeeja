@@ -106,6 +106,9 @@ namespace CoffeeJa.Infrastructure.Migrations
                     b.Property<DateTime>("DataEvento")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("Descartaveis")
+                        .HasColumnType("int");
+
                     b.Property<string>("Endereco")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -435,6 +438,9 @@ namespace CoffeeJa.Infrastructure.Migrations
                         .HasMaxLength(3000)
                         .HasColumnType("nvarchar(3000)");
 
+                    b.Property<DateTime?>("ContratanteLeuEm")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
@@ -443,6 +449,9 @@ namespace CoffeeJa.Infrastructure.Migrations
 
                     b.Property<Guid>("FornecedorId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("FornecedorLeuEm")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Observacao")
                         .HasMaxLength(2000)

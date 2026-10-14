@@ -1,6 +1,6 @@
-import { Restricao, restricaoLabels, restricoesDe, type DemandaResumo } from "@coffeeja/api-client";
+import { Restricao, descartavelLabels, descartaveisDe, restricaoLabels, restricoesDe, type DemandaResumo } from "@coffeeja/api-client";
 import { Badge, Card, Spinner } from "@coffeeja/ui";
-import { CalendarDays, ChevronRight, MapPin, Users } from "lucide-react";
+import { CalendarDays, ChevronRight, MapPin, MessageCircle, Users, UtensilsCrossed } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { dataLonga, hora, moeda } from "../lib/format";
@@ -21,6 +21,19 @@ export function Restricoes({ mask }: { mask: number }) {
   const l = restricoesDe(mask);
   if (!l.length) return null;
   return <>{l.map((b) => <Badge key={b} tone="success">{restricaoLabels[b]}</Badge>)}</>;
+}
+
+export function Descartaveis({ mask }: { mask: number }) {
+  const l = descartaveisDe(mask);
+  if (!l.length) return null;
+  return <Badge tone="accent"><UtensilsCrossed className="h-3.5 w-3.5" />Descartáveis: {l.map((b) => descartavelLabels[b].toLowerCase()).join(", ")}</Badge>;
+}
+
+/** Sinalização de conversa: "N novas" quando há mensagens não lidas; "Responder" quando a última mensagem é da outra parte. */
+export function ChatSinal({ naoLidas, aguardando }: { naoLidas: number; aguardando?: boolean }) {
+  if (naoLidas > 0) return <Badge tone="primary" className="animate-pulse"><MessageCircle className="h-3.5 w-3.5" />{naoLidas} {naoLidas === 1 ? "mensagem nova" : "mensagens novas"}</Badge>;
+  if (aguardando) return <Badge tone="warning"><MessageCircle className="h-3.5 w-3.5" />Aguardando sua resposta</Badge>;
+  return null;
 }
 
 export function Secao({ titulo, acao, children }: { titulo: string; acao?: ReactNode; children: ReactNode }) {
@@ -51,16 +64,19 @@ export function DemandaCard({ d, to, fornecedor }: { d: DemandaResumo; to: strin
           {fornecedor
             ? <>
                 {d.minhaPropostaId ? <Badge tone="success">Proposta enviada</Badge> : <Badge tone="primary">Responder</Badge>}
+                <ChatSinal naoLidas={d.mensagensNaoLidas} />
                 {d.empresa && <Badge>{d.empresa}</Badge>}
                 {d.atendeRestricoes === false && <Badge tone="warning">Restrições fora do seu perfil</Badge>}
               </>
             : <>
                 <StatusDemandaBadge s={d.status} />
+                <ChatSinal naoLidas={d.mensagensNaoLidas} />
                 <Badge tone="accent">{d.totalPropostas} {d.totalPropostas === 1 ? "proposta" : "propostas"}</Badge>
                 {d.menorValor !== null && <Badge>a partir de {moeda(d.menorValor)}</Badge>}
               </>}
           <Badge tone="lavender">{labelEstilo[d.estilo]}</Badge>
           <Restricoes mask={d.restricoes} />
+          <Descartaveis mask={d.descartaveis} />
         </div>
       </Card>
     </Link>

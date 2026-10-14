@@ -24,6 +24,10 @@ export const restricaoLabels: Record<number, string> = {
   16: "Sem açúcar",
   32: "Sem oleaginosas",
 };
+/** Itens descartáveis (bitmask, igual ao enum [Flags] do backend). */
+export const Descartavel = { Pratos: 1, Copos: 2, Talheres: 4, Guardanapos: 8 } as const;
+export const descartavelLabels: Record<number, string> = { 1: "Pratos", 2: "Copos", 4: "Talheres", 8: "Guardanapos" };
+export const descartaveisDe = (mask: number) => Object.keys(descartavelLabels).map(Number).filter((b) => (mask & b) === b);
 export const restricoesDe = (mask: number) => Object.keys(restricaoLabels).map(Number).filter((b) => (mask & b) === b);
 
 export interface Usuario { id: string; nome: string; email: string; papel: Papel; empresa: string | null; aprovado: boolean | null }
@@ -33,25 +37,28 @@ export interface DemandaResumo {
   id: string; titulo: string; dataEvento: string; horaInicio: string; cidade: string; uf: string; numeroPessoas: number;
   restricoes: number; estilo: Estilo; status: StatusDemanda; totalPropostas: number; menorValor: number | null; criadoEm: string;
   distanciaKm: number | null; minhaPropostaId: string | null; atendeRestricoes: boolean | null; empresa: string | null;
+  descartaveis: number; mensagensNaoLidas: number;
 }
 export interface DemandaDetalhe {
   id: string; titulo: string; dataEvento: string; horaInicio: string; endereco: string | null; cidade: string; uf: string;
   latitude: number; longitude: number; numeroPessoas: number; restricoes: number; estilo: Estilo; observacoes: string | null;
-  prazoPropostas: string | null; status: StatusDemanda; empresa: string; criadoEm: string; pedidoId: string | null;
+  prazoPropostas: string | null; status: StatusDemanda; empresa: string; criadoEm: string; pedidoId: string | null; descartaveis: number;
 }
 export interface NovaDemanda {
   titulo: string; dataEvento: string; horaInicio: string; endereco: string; cidade: string; uf: string; latitude: number; longitude: number;
-  numeroPessoas: number; restricoes: number; estilo: Estilo; observacoes?: string; prazoPropostas?: string | null;
+  numeroPessoas: number; restricoes: number; estilo: Estilo; observacoes?: string; prazoPropostas?: string | null; descartaveis: number;
 }
 
 export interface Proposta {
   id: string; demandaId: string; fornecedorId: string; fornecedor: string; notaMedia: number; totalAvaliacoes: number; fundador: boolean;
   valorTotal: number; valorPorPessoa: number; cardapio: string; observacao: string | null; versao: number; status: StatusProposta;
   ajusteSolicitado: string | null; score: number; melhorCustoBeneficio: boolean; criadoEm: string;
+  mensagensNaoLidas: number; aguardandoMinhaResposta: boolean;
 }
 export interface MinhaProposta {
   id: string; demandaId: string; titulo: string; dataEvento: string; cidade: string; numeroPessoas: number; valorTotal: number;
   versao: number; status: StatusProposta; ajusteSolicitado: string | null; statusDemanda: StatusDemanda; pedidoId: string | null; criadoEm: string;
+  mensagensNaoLidas: number; aguardandoMinhaResposta: boolean;
 }
 export interface Mensagem { id: string; remetenteId: string; minha: boolean; texto: string; criadoEm: string }
 
@@ -75,9 +82,9 @@ export interface Cardapio { id: string; nome: string; estilo: Estilo; itens: str
 export interface Notificacao { id: string; titulo: string; texto: string; link: string | null; lida: boolean; criadoEm: string }
 export interface Coordenadas { latitude: number; longitude: number; cidade: string | null; uf: string | null }
 
-export interface DashboardContratante { demandasAbertas: number; propostasRecebidas: number; pedidos: number; gastoTotal: number; pedidosSemNota: number }
+export interface DashboardContratante { mensagensNaoLidas: number; demandasAbertas: number; propostasRecebidas: number; pedidos: number; gastoTotal: number; pedidosSemNota: number }
 export interface DashboardFornecedor {
-  propostasEnviadas: number; propostasAceitas: number; propostasEmAjuste: number; taxaConversao: number; faturamento: number;
+  mensagensNaoLidas: number; propostasEnviadas: number; propostasAceitas: number; propostasEmAjuste: number; taxaConversao: number; faturamento: number;
   notaMedia: number; totalAvaliacoes: number; pedidosSemNota: number; aprovado: boolean;
 }
 

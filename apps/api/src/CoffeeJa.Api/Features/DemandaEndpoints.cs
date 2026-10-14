@@ -9,15 +9,17 @@ using Microsoft.Extensions.Options;
 namespace CoffeeJa.Api.Features;
 
 public record CriarDemandaRequest(string Titulo, DateOnly DataEvento, TimeOnly HoraInicio, string Endereco, string Cidade, string Uf,
-    double Latitude, double Longitude, int NumeroPessoas, Restricoes Restricoes, EstiloCoffee Estilo, string? Observacoes, DateTime? PrazoPropostas);
+    double Latitude, double Longitude, int NumeroPessoas, Restricoes Restricoes, EstiloCoffee Estilo, string? Observacoes, DateTime? PrazoPropostas,
+    Descartaveis Descartaveis = Descartaveis.Nenhum);
 
 public record DemandaResumoDto(Guid Id, string Titulo, DateOnly DataEvento, TimeOnly HoraInicio, string Cidade, string Uf, int NumeroPessoas,
     Restricoes Restricoes, EstiloCoffee Estilo, StatusDemanda Status, int TotalPropostas, decimal? MenorValor, DateTime CriadoEm,
-    double? DistanciaKm, Guid? MinhaPropostaId, bool? AtendeRestricoes, string? Empresa);
+    double? DistanciaKm, Guid? MinhaPropostaId, bool? AtendeRestricoes, string? Empresa, Descartaveis Descartaveis = Descartaveis.Nenhum,
+    int MensagensNaoLidas = 0);
 
 public record DemandaDetalheDto(Guid Id, string Titulo, DateOnly DataEvento, TimeOnly HoraInicio, string? Endereco, string Cidade, string Uf,
     double Latitude, double Longitude, int NumeroPessoas, Restricoes Restricoes, EstiloCoffee Estilo, string? Observacoes, DateTime? PrazoPropostas,
-    StatusDemanda Status, string Empresa, DateTime CriadoEm, Guid? PedidoId);
+    StatusDemanda Status, string Empresa, DateTime CriadoEm, Guid? PedidoId, Descartaveis Descartaveis);
 
 public static class DemandaEndpoints
 {
@@ -44,7 +46,7 @@ public static class DemandaEndpoints
                 Titulo = r.Titulo.Trim(), DataEvento = data, HoraInicio = r.HoraInicio.ToTimeSpan(),
                 Endereco = r.Endereco.Trim(), Cidade = r.Cidade.Trim(), Uf = r.Uf!.ToUpperInvariant(),
                 Latitude = r.Latitude, Longitude = r.Longitude, NumeroPessoas = r.NumeroPessoas,
-                Restricoes = r.Restricoes, Estilo = r.Estilo, Observacoes = r.Observacoes, PrazoPropostas = r.PrazoPropostas,
+                Restricoes = r.Restricoes, Descartaveis = r.Descartaveis, Estilo = r.Estilo, Observacoes = r.Observacoes, PrazoPropostas = r.PrazoPropostas,
             };
             db.Demandas.Add(d);
 
@@ -68,10 +70,12 @@ public static class DemandaEndpoints
             var cid = u.ContratanteId();
             var q = db.Demandas.AsNoTracking().Where(d => d.ContratanteId == cid);
             if (status is not null) q = q.Where(d => d.Status == status);
-            return await q.OrderByDescending(d => d.CriadoEm).Select(d => new DemandaResumoDto(d.Id, d.Titulo,
+            var lista = await q.OrderByDescending(d => d.CriadoEm).Select(d => new DemandaResumoDto(d.Id, d.Titulo,
                 DateOnly.FromDateTime(d.DataEvento), TimeOnly.FromTimeSpan(d.HoraInicio), d.Cidade, d.Uf, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Status,
                 d.Propostas.Count(p => p.Status != StatusProposta.Retirada), d.Propostas.Where(p => p.Status != StatusProposta.Retirada).Min(p => (decimal?)p.ValorTotal),
-                d.CriadoEm, null, null, null, null)).ToListAsync();
+                d.CriadoEm, null, null, null, null, d.Descartaveis, 0)).ToListAsync();
+            var naoLidas = await Conversas.PorDemandaAsync(db, u.UsuarioId(), cid, null);
+            return lista.Select(d => d with { MensagensNaoLidas = naoLidas.GetValueOrDefault(d.Id) }).ToList();
         }).RequireAuthorization(Politicas.Contratante);
 
         // Fornecedor: demandas abertas dentro do raio
@@ -92,17 +96,18 @@ public static class DemandaEndpoints
                 .Select(d => new
                 {
                     d.Id, d.Titulo, d.DataEvento, d.HoraInicio, d.Cidade, d.Uf, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Status, d.CriadoEm,
-                    d.Latitude, d.Longitude, Empresa = d.Contratante.Empresa,
+                    d.Latitude, d.Longitude, d.Descartaveis, Empresa = d.Contratante.Empresa,
                     Total = d.Propostas.Count(p => p.Status != StatusProposta.Retirada),
                     Minha = d.Propostas.Where(p => p.FornecedorId == f.Id).Select(p => (Guid?)p.Id).FirstOrDefault(),
                 }).ToListAsync();
 
+            var naoLidas = await Conversas.PorDemandaAsync(db, u.UsuarioId(), null, f.Id);
             var res = lista
                 .Select(d => (d, km: Geo.DistanciaKm(f.Latitude, f.Longitude, d.Latitude, d.Longitude)))
                 .Where(x => x.km <= raio)
                 .Select(x => new DemandaResumoDto(x.d.Id, x.d.Titulo, DateOnly.FromDateTime(x.d.DataEvento), TimeOnly.FromTimeSpan(x.d.HoraInicio),
                     x.d.Cidade, x.d.Uf, x.d.NumeroPessoas, x.d.Restricoes, x.d.Estilo, x.d.Status, x.d.Total, null, x.d.CriadoEm,
-                    Math.Round(x.km, 1), x.d.Minha, (f.AtendeRestricoes & x.d.Restricoes) == x.d.Restricoes, x.d.Empresa))
+                    Math.Round(x.km, 1), x.d.Minha, (f.AtendeRestricoes & x.d.Restricoes) == x.d.Restricoes, x.d.Empresa, x.d.Descartaveis, naoLidas.GetValueOrDefault(x.d.Id)))
                 .ToList();
             return Results.Ok(res);
         }).RequireAuthorization(Politicas.Fornecedor);
@@ -131,7 +136,7 @@ public static class DemandaEndpoints
             var endereco = ehDono || ehVencedor || u.IsInRole(nameof(Papel.Admin)) ? d.Endereco : null;
             var (lat, lon) = endereco is null ? (Math.Round(d.Latitude, 2), Math.Round(d.Longitude, 2)) : (d.Latitude, d.Longitude);
             return Results.Ok(new DemandaDetalheDto(d.Id, d.Titulo, DateOnly.FromDateTime(d.DataEvento), TimeOnly.FromTimeSpan(d.HoraInicio), endereco,
-                d.Cidade, d.Uf, lat, lon, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Observacoes, d.PrazoPropostas, d.Status, d.Contratante.Empresa, d.CriadoEm, pedidoId));
+                d.Cidade, d.Uf, lat, lon, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Observacoes, d.PrazoPropostas, d.Status, d.Contratante.Empresa, d.CriadoEm, pedidoId, d.Descartaveis));
         });
 
         g.MapPost("/{id:guid}/cancelar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, INotificador notif) =>
