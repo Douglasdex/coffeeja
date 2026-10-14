@@ -12,7 +12,7 @@
   "dependencies": {
     "@coffeeja/api-client": "*",
     "@coffeeja/ui": "*",
-    "@microsoft/signalr": "^8.0.29",
+    "@microsoft/signalr": "^10.0.11",
     "@tanstack/react-query": "^5.62.0",
     "lucide-react": "^0.468.0",
     "qrcode": "^1.5.4",
