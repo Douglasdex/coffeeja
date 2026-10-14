@@ -18,6 +18,7 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
     public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
     public DbSet<PushInscricao> PushInscricoes => Set<PushInscricao>();
     public DbSet<Convite> Convites => Set<Convite>();
+    public DbSet<LogAuditoria> LogsAuditoria => Set<LogAuditoria>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -46,6 +47,10 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
             e.Property(x => x.AtivacaoTokenHash).HasMaxLength(64);
             e.Property(x => x.MotivoRecusa).HasMaxLength(500);
             e.Property(x => x.CodigoConvite).HasMaxLength(12);
+            e.Property(x => x.SecurityStamp).HasMaxLength(40);
+            e.Property(x => x.TotpSegredoProtegido).HasMaxLength(500);
+            e.Property(x => x.CodigosRecuperacaoHash).HasMaxLength(800);
+            e.Property(x => x.VersaoTermos).HasMaxLength(20);
             e.HasIndex(x => x.AprovacaoTokenHash);
             e.HasIndex(x => x.AtivacaoTokenHash);
             e.HasOne(x => x.Contratante).WithMany().HasForeignKey(x => x.ContratanteId).OnDelete(DeleteBehavior.NoAction);
@@ -74,6 +79,18 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
             e.Property(x => x.Uf).HasMaxLength(2);
             e.ComplexProperty(x => x.Endereco, ConfigEndereco);
             e.HasIndex(x => new { x.Latitude, x.Longitude });
+        });
+
+        b.Entity<LogAuditoria>(e =>
+        {
+            e.Property(x => x.Acao).HasMaxLength(60);
+            e.Property(x => x.Alvo).HasMaxLength(100);
+            e.Property(x => x.Detalhe).HasMaxLength(500);
+            e.Property(x => x.Ip).HasMaxLength(45);
+            e.Property(x => x.UserAgent).HasMaxLength(200);
+            e.HasIndex(x => x.CriadoEm);
+            e.HasIndex(x => new { x.UsuarioId, x.CriadoEm });
+            e.HasIndex(x => x.Acao);
         });
 
         b.Entity<Convite>(e =>

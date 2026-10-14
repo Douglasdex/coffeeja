@@ -68,11 +68,11 @@ public static class ContasEndpoints
         {
             var cid = u.ContratanteId();
             return await db.Usuarios.AsNoTracking().Where(x => x.ContratanteId == cid && x.Funcao == FuncaoUsuario.Membro)
-                .OrderBy(x => x.Nome).Select(x => new FuncionarioDto(x.Id, x.Nome, x.Cpf ?? "", x.Setor, x.Telefone, x.Whatsapp, x.SuperiorNome,
+                .OrderBy(x => x.Nome).Take(500).Select(x => new FuncionarioDto(x.Id, x.Nome, x.Cpf ?? "", x.Setor, x.Telefone, x.Whatsapp, x.SuperiorNome,
                     x.SuperiorWhatsapp, x.Status, x.CriadoEm, x.AprovadoEm, x.MotivoRecusa)).ToListAsync();
         });
 
-        g.MapPost("/", async (NovoFuncionarioRequest r, ClaimsPrincipal u, CoffeeJaDbContext db, IOptions<PlataformaOptions> plat) =>
+        g.MapPost("/", async (NovoFuncionarioRequest r, ClaimsPrincipal u, CoffeeJaDbContext db, IOptions<PlataformaOptions> plat, AuditoriaService audit) =>
         {
             var cid = u.ContratanteId()!.Value;
             var conta = await db.Contratantes.AsNoTracking().FirstAsync(c => c.Id == cid);
@@ -102,6 +102,7 @@ public static class ContasEndpoints
             var link = GerarLinkAprovacao(f, plat, u.NomeUsuario(), conta);
             db.Usuarios.Add(f);
             await db.SaveChangesAsync();
+            await audit.RegistrarAsync("FUNCIONARIO_CRIADO", u.UsuarioId(), f.Id.ToString());
             return Results.Created($"/api/equipe/{f.Id}", link);
         });
 
@@ -130,12 +131,17 @@ public static class ContasEndpoints
             return Results.Ok(link);
         });
 
-        g.MapPost("/{id:guid}/desativar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db) =>
+        g.MapPost("/{id:guid}/desativar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, SessaoCache sessoes, AuditoriaService audit) =>
         {
             var cid = u.ContratanteId();
-            var n = await db.Usuarios.Where(x => x.Id == id && x.ContratanteId == cid && x.Funcao == FuncaoUsuario.Membro)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, StatusUsuario.Inativo));
-            return n == 0 ? Results.NotFound() : Results.NoContent();
+            var f = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id && x.ContratanteId == cid && x.Funcao == FuncaoUsuario.Membro);
+            if (f is null) return Results.NotFound();
+            f.Status = StatusUsuario.Inativo;
+            f.SecurityStamp = Guid.NewGuid().ToString("N"); // derruba as sessões abertas dessa pessoa
+            await db.SaveChangesAsync();
+            sessoes.Invalidar(f.Id);
+            await audit.RegistrarAsync("USUARIO_DESATIVADO", u.UsuarioId(), f.Id.ToString());
+            return Results.NoContent();
         });
 
         g.MapPost("/{id:guid}/reativar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db) =>
@@ -185,7 +191,7 @@ public static class ContasEndpoints
             return Results.Ok(new { acessos = lista, aviso = "No futuro, cada acesso adicional terá uma licença mensal. Por enquanto, a liberação é gratuita." });
         });
 
-        g.MapPost("/", async (NovoAcessoRequest r, ClaimsPrincipal u, CoffeeJaDbContext db, IOptions<PlataformaOptions> plat) =>
+        g.MapPost("/", async (NovoAcessoRequest r, ClaimsPrincipal u, CoffeeJaDbContext db, IOptions<PlataformaOptions> plat, AuditoriaService audit) =>
         {
             if (Validacao.Erros(
                     (string.IsNullOrWhiteSpace(r.Nome) || r.Nome.Trim().Length < 5, "nome", "Informe o nome completo."),
@@ -208,6 +214,7 @@ public static class ContasEndpoints
             var link = GerarLinkAtivacao(a, plat, forn.NomeFantasia);
             db.Usuarios.Add(a);
             await db.SaveChangesAsync();
+            await audit.RegistrarAsync("ACESSO_ADICIONAL_CRIADO", u.UsuarioId(), a.Id.ToString());
             return Results.Created($"/api/fornecedor/acessos/{a.Id}", link);
         });
 
@@ -222,12 +229,17 @@ public static class ContasEndpoints
             return Results.Ok(link);
         });
 
-        g.MapPost("/{id:guid}/desativar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db) =>
+        g.MapPost("/{id:guid}/desativar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, SessaoCache sessoes, AuditoriaService audit) =>
         {
             var fid = u.FornecedorId();
-            var n = await db.Usuarios.Where(x => x.Id == id && x.FornecedorId == fid && x.Funcao == FuncaoUsuario.Membro)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, StatusUsuario.Inativo));
-            return n == 0 ? Results.NotFound() : Results.NoContent();
+            var a = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id && x.FornecedorId == fid && x.Funcao == FuncaoUsuario.Membro);
+            if (a is null) return Results.NotFound();
+            a.Status = StatusUsuario.Inativo;
+            a.SecurityStamp = Guid.NewGuid().ToString("N");
+            await db.SaveChangesAsync();
+            sessoes.Invalidar(a.Id);
+            await audit.RegistrarAsync("USUARIO_DESATIVADO", u.UsuarioId(), a.Id.ToString());
+            return Results.NoContent();
         });
 
         g.MapPost("/{id:guid}/reativar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db) =>
@@ -258,7 +270,7 @@ public static class ContasEndpoints
                 f.SuperiorNome ?? "", admin ?? "", f.CriadoEm));
         });
 
-        g.MapPost("/aprovacao/{token}", async (string token, DecisaoRequest r, CoffeeJaDbContext db, INotificador notif) =>
+        g.MapPost("/aprovacao/{token}", async (string token, DecisaoRequest r, CoffeeJaDbContext db, INotificador notif, AuditoriaService audit) =>
         {
             var h = Tokens.Hash(token);
             var f = await db.Usuarios.Include(x => x.Contratante)
@@ -281,6 +293,7 @@ public static class ContasEndpoints
                 r.Aprovar ? $"{f.SuperiorNome} aprovou {f.Nome}. Envie o acesso por WhatsApp." : $"{f.SuperiorNome} recusou {f.Nome}.",
                 "/contratante/equipe");
             await db.SaveChangesAsync();
+            await audit.RegistrarAsync(r.Aprovar ? "SUPERIOR_APROVOU" : "SUPERIOR_RECUSOU", f.Id, f.Nome);
             return Results.Ok(new { aprovado = r.Aprovar });
         });
 
@@ -294,20 +307,25 @@ public static class ContasEndpoints
             return Results.Ok(new AtivacaoInfoDto(a.Nome, a.Contratante?.NomeFantasia ?? a.Contratante?.Empresa ?? a.Fornecedor?.NomeFantasia ?? "", Documentos.MascararCpf(a.Cpf)));
         });
 
-        g.MapPost("/ativacao/{token}", async (string token, DefinirSenhaRequest r, CoffeeJaDbContext db, TokenService tokens) =>
+        g.MapPost("/ativacao/{token}", async (string token, DefinirSenhaRequest r, HttpContext http, CoffeeJaDbContext db, TokenService tokens, SessaoCache sessoes, AuditoriaService audit) =>
         {
-            if (Validacao.Erros((r.Senha is null || r.Senha.Length < 8, "senha", "A senha deve ter ao menos 8 caracteres.")) is { } erro) return erro;
             var h = Tokens.Hash(token);
             var a = await db.Usuarios.Include(x => x.Contratante).Include(x => x.Fornecedor)
                 .FirstOrDefaultAsync(x => x.AtivacaoTokenHash == h && x.AtivacaoExpiraEm > DateTime.UtcNow
                     && (x.Status == StatusUsuario.AguardandoAtivacao || x.Status == StatusUsuario.Ativo));
             if (a is null) return invalido();
+            if (PoliticaSenha.Validar(r.Senha, a.Nome) is { } erroSenha) return Results.ValidationProblem(new Dictionary<string, string[]> { ["senha"] = [erroSenha] });
             a.SenhaHash = AuthEndpoints.HashSenha(a, r.Senha!);
+            a.SecurityStamp = Guid.NewGuid().ToString("N");
+            a.FalhasLogin = 0; a.BloqueadoAte = null;
+            if (a.AceiteTermosEm is null) { a.AceiteTermosEm = DateTime.UtcNow; a.VersaoTermos = Termos.Versao; }
             a.Status = StatusUsuario.Ativo;
             a.AtivacaoTokenHash = null;
             a.AtivacaoExpiraEm = null;
             await db.SaveChangesAsync();
-            return Results.Ok(new SessaoDto(tokens.Gerar(a), AuthEndpoints.ParaDto(a)));
+            sessoes.Invalidar(a.Id);
+            await audit.RegistrarAsync("SENHA_DEFINIDA", a.Id);
+            return Results.Ok(AuthEndpoints.Abrir(http, tokens, a));
         });
 
         g.MapGet("/convite/{codigo}", async (string codigo, CoffeeJaDbContext db) =>

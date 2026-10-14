@@ -49,7 +49,7 @@ export function StatCard({ label, value, ring, icon, color, className }: { label
     <Card className={cn("flex min-w-[10.5rem] items-center justify-between gap-3 p-4", className)}>
       <div className="min-w-0">
         <div className="text-sm text-muted-foreground">{label}</div>
-        <div className="mt-1 truncate text-2xl font-bold tracking-tight">{value}</div>
+        <div className="mt-1 break-words text-xl font-bold tracking-tight sm:text-2xl">{value}</div>
       </div>
       {ring !== undefined && <Ring value={ring} icon={icon} color={color} />}
     </Card>

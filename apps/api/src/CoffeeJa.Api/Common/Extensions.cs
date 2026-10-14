@@ -7,6 +7,7 @@ public static class ClaimsExtensions
 {
     public static Guid UsuarioId(this ClaimsPrincipal u) => Guid.Parse(u.FindFirstValue(ClaimTypes.NameIdentifier)!);
     public static Guid? ContratanteId(this ClaimsPrincipal u) => Guid.TryParse(u.FindFirstValue("contratante_id"), out var g) ? g : null;
+    public static bool Mfa(this ClaimsPrincipal u) => u.FindFirstValue("mfa") == "1";
     public static bool EhAdminConta(this ClaimsPrincipal u) => u.FindFirstValue("funcao") == nameof(FuncaoUsuario.AdminConta);
     public static string NomeUsuario(this ClaimsPrincipal u) => u.FindFirstValue(ClaimTypes.Name) ?? "";
     public static string? SetorUsuario(this ClaimsPrincipal u) => u.FindFirstValue("setor");

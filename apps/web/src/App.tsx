@@ -11,6 +11,8 @@ import { AdminPainel } from "./pages/Admin";
 import { Convidar } from "./pages/Convidar";
 import { Equipe } from "./pages/Equipe";
 import { AprovarFuncionario, AtivarAcesso } from "./pages/Publico";
+import { TelaMfaObrigatoria } from "./components/Seguranca";
+import { Privacidade, Termos } from "./pages/Legal";
 import { Notificacoes } from "./pages/Notificacoes";
 import { PedidoDetalhe, PedidosLista } from "./pages/Pedidos";
 
@@ -18,6 +20,7 @@ function Protegida({ papel, children }: { papel?: Papel; children: ReactNode }) 
   const { usuario, carregando } = useAuth();
   if (carregando) return <Carregando />;
   if (!usuario) return <Navigate to="/login" replace />;
+  if (usuario.mfaPendente) return <TelaMfaObrigatoria />;
   if (papel && usuario.papel !== papel) return <Navigate to={rotaInicial(usuario)} replace />;
   return <>{children}</>;
 }
@@ -34,6 +37,8 @@ export default function App() {
       <Route path="/" element={<Raiz />} />
       <Route path="/login" element={<Login />} />
       <Route path="/cadastro" element={<Cadastro />} />
+      <Route path="/termos" element={<Termos />} />
+      <Route path="/privacidade" element={<Privacidade />} />
       <Route path="/aprovar/:token" element={<AprovarFuncionario />} />
       <Route path="/ativar/:token" element={<AtivarAcesso />} />
 

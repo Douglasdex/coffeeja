@@ -12,6 +12,8 @@ namespace CoffeeJa.Api.Services;
 
 public class TokenService(IOptions<JwtOptions> opt)
 {
+    public TimeSpan Validade => TimeSpan.FromMinutes(opt.Value.ExpiraEmMinutos);
+
     public string Gerar(Usuario u)
     {
         var o = opt.Value;
@@ -23,6 +25,8 @@ public class TokenService(IOptions<JwtOptions> opt)
             new(ClaimTypes.Role, u.Papel.ToString()),
         };
         claims.Add(new("funcao", u.Funcao.ToString()));
+        claims.Add(new("sv", u.SecurityStamp));
+        claims.Add(new("mfa", u.TotpAtivo ? "1" : "0"));
         if (!string.IsNullOrWhiteSpace(u.Setor)) claims.Add(new("setor", u.Setor));
         if (u.ContratanteId is { } cid) claims.Add(new("contratante_id", cid.ToString()));
         if (u.FornecedorId is { } fid) claims.Add(new("fornecedor_id", fid.ToString()));

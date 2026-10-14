@@ -73,7 +73,7 @@ public static class DemandaEndpoints
             var cid = u.ContratanteId();
             var q = db.Demandas.AsNoTracking().Where(d => d.ContratanteId == cid);
             if (status is not null) q = q.Where(d => d.Status == status);
-            var lista = await q.OrderByDescending(d => d.CriadoEm).Select(d => new DemandaResumoDto(d.Id, d.Titulo,
+            var lista = await q.OrderByDescending(d => d.CriadoEm).Take(300).Select(d => new DemandaResumoDto(d.Id, d.Titulo,
                 DateOnly.FromDateTime(d.DataEvento), TimeOnly.FromTimeSpan(d.HoraInicio), d.Cidade, d.Uf, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Status,
                 d.Propostas.Count(p => p.Status != StatusProposta.Retirada), d.Propostas.Where(p => p.Status != StatusProposta.Retirada).Min(p => (decimal?)p.ValorTotal),
                 d.CriadoEm, null, null, null, null, d.Descartaveis, 0)).ToListAsync();
@@ -95,7 +95,7 @@ public static class DemandaEndpoints
                 .Where(d => (d.Status == StatusDemanda.Aberta || d.Status == StatusDemanda.EmNegociacao) && d.DataEvento >= hoje
                             && (d.PrazoPropostas == null || d.PrazoPropostas > agora)
                             && d.Latitude >= minLat && d.Latitude <= maxLat && d.Longitude >= minLon && d.Longitude <= maxLon)
-                .OrderBy(d => d.DataEvento).ThenBy(d => d.HoraInicio)
+                .OrderBy(d => d.DataEvento).ThenBy(d => d.HoraInicio).Take(500)
                 .Select(d => new
                 {
                     d.Id, d.Titulo, d.DataEvento, d.HoraInicio, d.Cidade, d.Uf, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Status, d.CriadoEm,

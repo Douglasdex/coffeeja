@@ -1,14 +1,14 @@
 import { api, type ContratanteAdmin, type FornecedorAdmin } from "@coffeeja/api-client";
 import { Badge, Button, Card, CardContent, Chip, EmptyState, PageTitle, Stars, StatCard, cn } from "@coffeeja/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Award, Building2, Check, ClipboardList, FileText, Gift, ShieldCheck, Trophy, User, Users, Utensils, Wallet } from "lucide-react";
+import { Award, Building2, Check, ClipboardList, FileText, Gift, ScrollText, ShieldCheck, Trophy, User, Users, Utensils, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Carregando, ErroBox } from "../components/common";
 import { mascaraCnpj, mascaraCpf, mascaraTelefone } from "../lib/docs";
 import { haQuanto, moeda } from "../lib/format";
 import { useToast } from "../lib/toast";
 
-type Aba = "buffets" | "contratantes" | "convites";
+type Aba = "buffets" | "contratantes" | "convites" | "lgpd" | "auditoria";
 
 export function AdminPainel() {
   const [aba, setAba] = useState<Aba>("buffets");
@@ -35,11 +35,15 @@ export function AdminPainel() {
         <Chip active={aba === "buffets"} onClick={() => setAba("buffets")}>Buffets</Chip>
         <Chip active={aba === "contratantes"} onClick={() => setAba("contratantes")}>Contratantes</Chip>
         <Chip active={aba === "convites"} onClick={() => setAba("convites")}>Ranking de convites</Chip>
+        <Chip active={aba === "lgpd"} onClick={() => setAba("lgpd")}>LGPD</Chip>
+        <Chip active={aba === "auditoria"} onClick={() => setAba("auditoria")}>Auditoria</Chip>
       </div>
 
       {aba === "buffets" && <Buffets />}
       {aba === "contratantes" && <Contratantes />}
       {aba === "convites" && <Ranking />}
+      {aba === "lgpd" && <Lgpd />}
+      {aba === "auditoria" && <Auditoria />}
     </div>
   );
 }
@@ -156,6 +160,62 @@ function Ranking() {
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- LGPD */
+function Lgpd() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const { data, isLoading, error } = useQuery({ queryKey: ["admin-lgpd"], queryFn: api.admin.lgpdSolicitacoes });
+  const [confirmar, setConfirmar] = useState<string | null>(null);
+  const anonimizar = useMutation({
+    mutationFn: (id: string) => api.admin.anonimizar(id),
+    onSuccess: () => { toast("Dados pessoais removidos."); setConfirmar(null); void qc.invalidateQueries({ queryKey: ["admin-lgpd"] }); },
+    onError: (e) => toast(e.message, true),
+  });
+  if (isLoading) return <Carregando />;
+  if (error) return <ErroBox erro={error} />;
+  if (!data?.length) return <EmptyState icon={<ShieldCheck className="h-6 w-6" />} title="Nenhuma solicitação pendente">Pedidos de exclusão de dados feitos pelos usuários aparecem aqui (prazo legal de resposta: 15 dias).</EmptyState>;
+  return (
+    <div className="space-y-3">
+      {data.map((x) => (
+        <Card key={x.id}><CardContent className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0"><div className="truncate font-semibold">{x.nome}</div><div className="truncate text-sm text-muted-foreground">{x.email ?? "sem e-mail"} · {x.papel}{x.empresa ? ` · ${x.empresa}` : ""}</div></div>
+            <Badge tone="warning">pedido {haQuanto(x.solicitadaEm)}</Badge>
+          </div>
+          {confirmar === x.id
+            ? <div className="space-y-2 rounded-xl bg-destructive-soft p-3 text-sm"><p>Anonimizar remove nome, CPF, e-mail e telefones deste usuário e encerra o acesso. Não dá para desfazer. Registros fiscais da empresa são mantidos.</p>
+                <div className="flex gap-2"><Button variant="destructive" size="sm" disabled={anonimizar.isPending} onClick={() => anonimizar.mutate(x.id)}>Confirmar anonimização</Button><Button variant="ghost" size="sm" onClick={() => setConfirmar(null)}>Cancelar</Button></div></div>
+            : <Button variant="outline" size="sm" onClick={() => setConfirmar(x.id)}>Anonimizar dados</Button>}
+        </CardContent></Card>
+      ))}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- Auditoria */
+const acoes = ["", "LOGIN_FALHA", "LOGIN_BLOQUEIO", "LOGIN_OK", "SENHA_ALTERADA", "2FA_ATIVADO", "USUARIO_DESATIVADO", "FORNECEDOR_APROVADO", "CONTRATANTE_SUSPENSO", "NF_BAIXADA", "LGPD_ANONIMIZADO"];
+
+function Auditoria() {
+  const [acao, setAcao] = useState("");
+  const { data, isLoading, error } = useQuery({ queryKey: ["admin-auditoria", acao], queryFn: () => api.admin.auditoria(acao || undefined) });
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar">{acoes.map((a) => <Chip key={a} active={acao === a} onClick={() => setAcao(a)}>{a || "Todas"}</Chip>)}</div>
+      {isLoading ? <Carregando /> : error ? <ErroBox erro={error} /> : data?.length ? (
+        <Card><div className="overflow-x-auto"><table className="w-full min-w-[34rem] text-sm">
+          <thead className="text-left text-xs text-muted-foreground"><tr><th className="p-3">Quando</th><th className="p-3">Ação</th><th className="p-3">Usuário</th><th className="p-3">IP</th><th className="p-3">Detalhe</th></tr></thead>
+          <tbody>{data.map((l) => (
+            <tr key={l.id} className="border-t border-border/60">
+              <td className="whitespace-nowrap p-3 text-muted-foreground">{haQuanto(l.em)}</td>
+              <td className="p-3 font-medium"><span className={cn(l.acao.includes("FALHA") || l.acao.includes("BLOQUE") ? "text-destructive" : "")}>{l.acao}</span></td>
+              <td className="p-3">{l.usuario ?? "—"}</td><td className="p-3 text-muted-foreground">{l.ip ?? ""}</td><td className="p-3 text-muted-foreground">{l.detalhe ?? l.alvo ?? ""}</td>
+            </tr>))}</tbody>
+        </table></div></Card>
+      ) : <EmptyState icon={<ScrollText className="h-6 w-6" />} title="Nenhum registro" />}
     </div>
   );
 }

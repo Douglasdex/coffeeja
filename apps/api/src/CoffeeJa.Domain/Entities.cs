@@ -51,6 +51,24 @@ public class Usuario : Entidade
 
     public Guid? CriadoPorId { get; set; }
 
+    // Segurança da conta
+    /// <summary>Muda ao trocar senha / desativar: invalida todas as sessões já emitidas.</summary>
+    public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
+    public int FalhasLogin { get; set; }
+    public DateTime? BloqueadoAte { get; set; }
+    public bool TotpAtivo { get; set; }
+    /// <summary>Último passo TOTP aceito: impede reutilizar o mesmo código (replay).</summary>
+    public long TotpUltimoPasso { get; set; }
+    /// <summary>Segredo TOTP protegido pelo Data Protection (nunca em texto puro).</summary>
+    public string? TotpSegredoProtegido { get; set; }
+    /// <summary>Hashes (SHA-256) dos códigos de recuperação do 2FA, separados por vírgula.</summary>
+    public string? CodigosRecuperacaoHash { get; set; }
+
+    // LGPD
+    public DateTime? AceiteTermosEm { get; set; }
+    public string? VersaoTermos { get; set; }
+    public DateTime? ExclusaoSolicitadaEm { get; set; }
+
     // Indicação
     public string CodigoConvite { get; set; } = "";
     public Guid? IndicadoPorId { get; set; }
@@ -241,4 +259,15 @@ public class PushInscricao : Entidade
     public string Endpoint { get; set; } = "";
     public string P256dh { get; set; } = "";
     public string Auth { get; set; } = "";
+}
+
+/// <summary>Trilha de auditoria de eventos sensíveis (login, aprovações, ações administrativas, LGPD...).</summary>
+public class LogAuditoria : Entidade
+{
+    public Guid? UsuarioId { get; set; }
+    public string Acao { get; set; } = "";
+    public string? Alvo { get; set; }
+    public string? Detalhe { get; set; }
+    public string? Ip { get; set; }
+    public string? UserAgent { get; set; }
 }

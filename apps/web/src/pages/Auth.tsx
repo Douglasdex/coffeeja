@@ -1,9 +1,10 @@
-import { api, type CadastroPf, type CadastroPj, type Endereco } from "@coffeeja/api-client";
+import { ApiError, api, type CadastroPf, type CadastroPj, type Endereco } from "@coffeeja/api-client";
 import { Button, Card, Field, Input, cn } from "@coffeeja/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Building2, Clock, ShieldCheck, User, Utensils, Gift } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { erroSenha } from "../components/Seguranca";
 import { EnderecoFields, enderecoCompleto, enderecoVazio } from "../components/EnderecoFields";
 import { Logo } from "../components/AppShell";
 import { rotaInicial, useAuth } from "../lib/auth";
@@ -42,7 +43,13 @@ export function Login() {
   const { usuario, entrar } = useAuth();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const m = useMutation({ mutationFn: () => api.auth.login(email, senha), onSuccess: entrar });
+  const [codigo, setCodigo] = useState("");
+  const [pede2fa, setPede2fa] = useState(false);
+  const m = useMutation({
+    mutationFn: () => api.auth.login(email, senha, pede2fa ? codigo : undefined),
+    onSuccess: entrar,
+    onError: (e) => { if (e instanceof ApiError && e.requer2fa) setPede2fa(true); },
+  });
   if (usuario) return <Navigate to={rotaInicial(usuario)} replace />;
 
   return (
@@ -50,7 +57,12 @@ export function Login() {
       <form className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); m.mutate(); }}>
         <Field label="E-mail ou CPF" hint="Funcionários entram com o CPF"><Input autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
         <Field label="Senha"><Input type="password" autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} required /></Field>
-        {m.error && <p role="alert" className="text-sm font-medium text-destructive">{m.error.message}</p>}
+        {pede2fa && (
+          <Field label="Código de verificação" hint="Do aplicativo autenticador (ou um código de recuperação)">
+            <Input value={codigo} onChange={(e) => setCodigo(e.target.value.trim())} inputMode="text" autoComplete="one-time-code" autoFocus />
+          </Field>
+        )}
+        {m.error && !(m.error instanceof ApiError && m.error.requer2fa) && <p role="alert" className="text-sm font-medium text-destructive">{m.error.message}</p>}
         <Button size="lg" className="w-full" disabled={m.isPending}>{m.isPending ? "Entrando..." : "Entrar"}</Button>
       </form>
       <p className="text-center text-sm text-muted-foreground">Ainda não tem conta? <Link to="/cadastro" className="font-semibold text-primary">Cadastre-se</Link></p>
@@ -91,6 +103,7 @@ export function Cadastro() {
   const [nfMesmo, setNfMesmo] = useState(true);
   const [endNf, setEndNf] = useState<Endereco>(enderecoVazio);
   const [tentou, setTentou] = useState(false);
+  const [aceite, setAceite] = useState(false);
 
   const setR = (k: keyof typeof resp0) => (v: string) => setResp({ ...resp, [k]: v });
   const setP = (k: keyof typeof pf) => (v: string) => setPf({ ...pf, [k]: v });
@@ -99,10 +112,10 @@ export function Cadastro() {
     mutationFn: () => {
       const conviteCodigo = convite ?? null;
       if (perfil === "pf") {
-        const body: CadastroPf = { ...pf, endereco: endPessoa, notaFiscalMesmoEndereco: nfMesmo, enderecoNotaFiscal: nfMesmo ? null : endNf, conviteCodigo };
+        const body: CadastroPf = { ...pf, endereco: endPessoa, notaFiscalMesmoEndereco: nfMesmo, enderecoNotaFiscal: nfMesmo ? null : endNf, conviteCodigo, aceiteTermos: aceite } as CadastroPf;
         return api.auth.registrarContratantePf(body);
       }
-      const body: CadastroPj = { razaoSocial: razao, nomeFantasia: fantasia, cnpj, endereco: endEmpresa, responsavel: resp, conviteCodigo };
+      const body: CadastroPj = { razaoSocial: razao, nomeFantasia: fantasia, cnpj, endereco: endEmpresa, responsavel: resp, conviteCodigo, aceiteTermos: aceite } as CadastroPj;
       return perfil === "pj" ? api.auth.registrarContratantePj(body) : api.auth.registrarFornecedor(body);
     },
     onSuccess: (s) => { entrar(s); nav(rotaInicial(s.usuario), { replace: true }); },
@@ -115,7 +128,7 @@ export function Cadastro() {
         cpf: cpfValido(pf.cpf) ? undefined : "CPF inválido",
         whatsapp: celularValido(pf.whatsapp) ? undefined : "WhatsApp com DDD",
         email: emailValido(pf.email) ? undefined : "E-mail inválido",
-        senha: pf.senha.length >= 8 ? undefined : "Mínimo de 8 caracteres",
+        senha: erroSenha(pf.senha),
         endereco: enderecoCompleto(endPessoa) ? undefined : "Preencha todo o endereço",
         nf: nfMesmo || enderecoCompleto(endNf) ? undefined : "Preencha o endereço da nota fiscal",
       }
@@ -129,9 +142,9 @@ export function Cadastro() {
         tel: telefoneValido(resp.telefoneComercial) ? undefined : "Telefone comercial com DDD",
         whatsapp: celularValido(resp.whatsapp) ? undefined : "WhatsApp com DDD",
         email: emailValido(resp.email) ? undefined : "E-mail inválido",
-        senha: resp.senha.length >= 8 ? undefined : "Mínimo de 8 caracteres",
+        senha: erroSenha(resp.senha),
       };
-  const temErro = Object.values(erros).some(Boolean);
+  const temErro = Object.values(erros).some(Boolean) || !aceite;
   const e = (k: string) => (tentou ? erros[k] : undefined);
 
   const opcoes = [
@@ -179,7 +192,7 @@ export function Cadastro() {
               <Field label="Telefone comercial da empresa" error={e("tel")}><Input value={resp.telefoneComercial} inputMode="tel" onChange={(x) => setR("telefoneComercial")(mascaraTelefone(x.target.value))} placeholder="(11) 3333-4444" /></Field>
               <Field label="WhatsApp do responsável" error={e("whatsapp")}><Input value={resp.whatsapp} inputMode="tel" onChange={(x) => setR("whatsapp")(mascaraTelefone(x.target.value))} placeholder="(11) 91234-5678" /></Field>
               <Field label="E-mail (seu login)" error={e("email")}><Input type="email" value={resp.email} onChange={(x) => setR("email")(x.target.value)} autoComplete="email" /></Field>
-              <Field label="Senha" hint="Mínimo de 8 caracteres" error={e("senha")}><Input type="password" value={resp.senha} onChange={(x) => setR("senha")(x.target.value)} autoComplete="new-password" /></Field>
+              <Field label="Senha" hint="Mínimo de 10 caracteres, com letras e número ou símbolo" error={e("senha")}><Input type="password" value={resp.senha} onChange={(x) => setR("senha")(x.target.value)} autoComplete="new-password" /></Field>
             </Secao>
             {perfil === "pj" && <p className="rounded-xl bg-accent-soft p-3 text-sm text-accent">Depois de criar a conta você poderá cadastrar funcionários para fazer pedidos em nome da empresa, com aprovação do superior imediato.</p>}
           </>
@@ -190,7 +203,7 @@ export function Cadastro() {
               <Field label="CPF" error={e("cpf")}><Input value={pf.cpf} inputMode="numeric" onChange={(x) => setP("cpf")(mascaraCpf(x.target.value))} placeholder="000.000.000-00" /></Field>
               <Field label="WhatsApp" error={e("whatsapp")}><Input value={pf.whatsapp} inputMode="tel" onChange={(x) => setP("whatsapp")(mascaraTelefone(x.target.value))} placeholder="(11) 91234-5678" /></Field>
               <Field label="E-mail (seu login)" error={e("email")}><Input type="email" value={pf.email} onChange={(x) => setP("email")(x.target.value)} autoComplete="email" /></Field>
-              <Field label="Senha" hint="Mínimo de 8 caracteres" error={e("senha")}><Input type="password" value={pf.senha} onChange={(x) => setP("senha")(x.target.value)} autoComplete="new-password" /></Field>
+              <Field label="Senha" hint="Mínimo de 10 caracteres, com letras e número ou símbolo" error={e("senha")}><Input type="password" value={pf.senha} onChange={(x) => setP("senha")(x.target.value)} autoComplete="new-password" /></Field>
             </Secao>
             <Secao titulo="Seu endereço">
               <EnderecoFields value={endPessoa} onChange={(v) => { setEndPessoa(v); }} />
@@ -209,6 +222,11 @@ export function Cadastro() {
             </Secao>
           </>
         )}
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={aceite} onChange={(x) => setAceite(x.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--primary)]" />
+          <span>Li e aceito os <Link to="/termos" target="_blank" className="font-semibold text-primary underline">Termos de Uso</Link> e a <Link to="/privacidade" target="_blank" className="font-semibold text-primary underline">Política de Privacidade</Link>.</span>
+        </label>
+        {tentou && !aceite && <p className="text-xs font-medium text-destructive">É necessário aceitar para criar a conta.</p>}
         {m.error && <p role="alert" className="text-sm font-medium text-destructive">{m.error.message}</p>}
         {tentou && temErro && <p role="alert" className="text-sm font-medium text-destructive">Revise os campos destacados.</p>}
         <Button size="lg" className="w-full" disabled={m.isPending}>{m.isPending ? "Criando..." : "Criar conta"}</Button>

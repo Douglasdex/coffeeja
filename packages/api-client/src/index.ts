@@ -36,7 +36,7 @@ export type StatusUsuario = "Ativo" | "PendenteAprovacao" | "AguardandoAtivacao"
 
 export interface Usuario {
   id: string; nome: string; email: string | null; papel: Papel; funcao: Funcao; empresa: string | null; aprovado: boolean | null;
-  tipoConta: TipoConta | null; setor: string | null;
+  tipoConta: TipoConta | null; setor: string | null; totpAtivo: boolean; mfaPendente: boolean;
 }
 
 export interface Endereco { cep: string; logradouro: string; numero: string; complemento?: string | null; bairro: string; cidade: string; uf: string }
@@ -129,17 +129,20 @@ export interface FornecedorAdmin {
 }
 export interface ResumoAdmin { convitesEnviados: number; cadastrosPorConvite: number; fornecedoresPendentes: number; fornecedoresAtivos: number; contratantes: number; demandasAbertas: number; pedidos: number; volume: number }
 
+export interface SolicitacaoExclusao { id: string; nome: string; email: string | null; papel: string; empresa: string | null; solicitadaEm: string; status: StatusUsuario }
+export interface LogAuditoria { id: string; em: string; acao: string; usuario: string | null; usuarioId: string | null; alvo: string | null; detalhe: string | null; ip: string | null }
+export interface InicioTotp { segredo: string; uri: string }
+export interface ConfirmacaoTotp { codigosRecuperacao: string[]; sessao: Sessao }
+
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public campos?: Record<string, string[]>) {
+  constructor(public status: number, message: string, public campos?: Record<string, string[]>, public requer2fa = false) {
     super(message);
   }
 }
 
-const TOKEN_KEY = "coffeeja.token";
-export const sessao = {
-  get token() { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
-  set(token: string | null) { try { token ? localStorage.setItem(TOKEN_KEY, token) : localStorage.removeItem(TOKEN_KEY); } catch { /* storage indisponível */ } },
-};
+// A sessão vive em cookie HttpOnly (o JavaScript não consegue ler o token, o que reduz o estrago de uma falha XSS).
+// Toda requisição que muda estado leva o cabeçalho abaixo, exigido pela API como proteção CSRF.
+const CSRF = { "X-Requested-With": "CoffeeJa" };
 
 let onUnauthorized: (() => void) | undefined;
 export const aoExpirarSessao = (fn: () => void) => { onUnauthorized = fn; };
@@ -150,10 +153,10 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   const headers: Record<string, string> = {};
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
-  if (sessao.token) headers.Authorization = `Bearer ${sessao.token}`;
+  Object.assign(headers, CSRF);
   let res: Response;
   try {
-    res = await fetch(BASE + path, { method, headers, body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body) });
+    res = await fetch(BASE + path, { method, headers, credentials: "same-origin", body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, "Sem conexão com o servidor. Verifique sua internet.");
   }
@@ -161,13 +164,16 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   if (!res.ok) {
     let msg = "Algo deu errado. Tente novamente.";
     let campos: Record<string, string[]> | undefined;
+    let requer2fa = false;
+    let temDetalhe = false;
     try {
       const j = await res.json();
-      if (j.errors) { campos = j.errors; msg = Object.values(j.errors as Record<string, string[]>)[0]?.[0] ?? msg; }
-      else msg = j.detail ?? j.title ?? msg;
+      if (j.errors) { campos = j.errors; msg = Object.values(j.errors as Record<string, string[]>)[0]?.[0] ?? msg; temDetalhe = true; }
+      else if (j.detail ?? j.title) { msg = j.detail ?? j.title; temDetalhe = true; }
+      requer2fa = j.requer2fa === true;
     } catch { /* corpo vazio */ }
-    if (res.status === 429) msg = "Muitas tentativas. Aguarde um instante.";
-    throw new ApiError(res.status, msg, campos);
+    if (res.status === 429 && !temDetalhe) msg = "Muitas tentativas. Aguarde um instante.";
+    throw new ApiError(res.status, msg, campos, requer2fa);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -180,7 +186,8 @@ const del = (p: string) => req<void>("DELETE", p);
 
 export const api = {
   auth: {
-    login: (email: string, senha: string) => post<Sessao>("/api/auth/login", { email, senha }),
+    login: (email: string, senha: string, codigo?: string) => post<Sessao>("/api/auth/login", { email, senha, codigo: codigo || null }),
+    logout: () => post("/api/auth/logout"),
     registrarContratantePj: (b: CadastroPj) => post<Sessao>("/api/auth/registrar-contratante-pj", b),
     registrarContratantePf: (b: CadastroPf) => post<Sessao>("/api/auth/registrar-contratante-pf", b),
     registrarFornecedor: (b: CadastroPj) => post<Sessao>("/api/auth/registrar-fornecedor", b),
@@ -220,7 +227,7 @@ export const api = {
       return req<void>("POST", `/api/pedidos/${id}/nota-fiscal`, f);
     },
     baixarNota: async (id: string, nome: string) => {
-      const res = await fetch(`${BASE}/api/pedidos/${id}/nota-fiscal`, { headers: { Authorization: `Bearer ${sessao.token}` } });
+      const res = await fetch(`${BASE}/api/pedidos/${id}/nota-fiscal`, { credentials: "same-origin" });
       if (!res.ok) throw new ApiError(res.status, "Não foi possível baixar a nota fiscal.");
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");
@@ -262,7 +269,27 @@ export const api = {
     meus: () => get<MeusConvites>("/api/convites"),
     criar: (telefone?: string, nome?: string) => post<ConviteResultado>("/api/convites", { telefone: telefone || null, nome: nome || null }),
   },
+  seguranca: {
+    trocarSenha: (senhaAtual: string, novaSenha: string) => post<Sessao>("/api/seguranca/senha", { senhaAtual, novaSenha }),
+    totpIniciar: () => post<InicioTotp>("/api/seguranca/2fa/iniciar"),
+    totpConfirmar: (codigo: string) => post<ConfirmacaoTotp>("/api/seguranca/2fa/confirmar", { codigo }),
+    totpDesativar: (senha: string, codigo: string) => post("/api/seguranca/2fa/desativar", { senha, codigo }),
+  },
+  lgpd: {
+    solicitarExclusao: () => post<{ detail: string }>("/api/lgpd/solicitar-exclusao"),
+    baixarMeusDados: async () => {
+      const res = await fetch(`${BASE}/api/lgpd/meus-dados`, { credentials: "same-origin" });
+      if (!res.ok) throw new ApiError(res.status, "Não foi possível gerar seus dados agora.");
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url; a.download = "meus-dados-coffeeja.json"; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    },
+  },
   admin: {
+    lgpdSolicitacoes: () => get<SolicitacaoExclusao[]>("/api/admin/lgpd/solicitacoes"),
+    anonimizar: (id: string) => post(`/api/admin/usuarios/${id}/anonimizar`),
+    auditoria: (acao?: string, pagina = 1) => get<LogAuditoria[]>(`/api/admin/auditoria?pagina=${pagina}${acao ? `&acao=${encodeURIComponent(acao)}` : ""}`),
     contratantes: () => get<ContratanteAdmin[]>("/api/admin/contratantes"),
     suspenderContratante: (id: string) => post(`/api/admin/contratantes/${id}/suspender`),
     ativarContratante: (id: string) => post(`/api/admin/contratantes/${id}/ativar`),

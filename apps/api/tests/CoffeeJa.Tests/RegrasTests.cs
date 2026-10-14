@@ -1,5 +1,6 @@
 using CoffeeJa.Api.Common;
 using CoffeeJa.Api.Features;
+using CoffeeJa.Api.Services;
 using CoffeeJa.Domain;
 
 namespace CoffeeJa.Tests;
@@ -84,5 +85,64 @@ public class RegrasTests
         Assert.Contains("Olá, Maria!", m);
         Assert.Contains("propostas de buffets", m);
         Assert.Contains("https://x/cadastro?convite=ABC", m);
+    }
+
+    [Theory]
+    [InlineData("curta1!", false)]
+    [InlineData("senha12345", false)]
+    [InlineData("aaaaaaaaaa1", false)]
+    [InlineData("somenteletras", false)]
+    [InlineData("Cafe#Forte2026", true)]
+    [InlineData("uma frase longa 7", true)]
+    public void PoliticaSenha_aceita_apenas_senhas_fortes(string senha, bool ok) => Assert.Equal(ok, PoliticaSenha.Validar(senha) is null);
+
+    [Fact]
+    public void PoliticaSenha_rejeita_senha_com_nome_ou_email()
+    {
+        Assert.NotNull(PoliticaSenha.Validar("Fernanda#2026x", "fernanda@empresa.com", "Fernanda Lima"));
+        Assert.Null(PoliticaSenha.Validar("Cafe#Forte2026", "fernanda@empresa.com", "Fernanda Lima"));
+    }
+
+    [Fact]
+    public void Totp_confere_com_vetor_do_RFC6238()
+    {
+        // RFC 6238, apêndice B (SHA-1, segredo "12345678901234567890"), T = 59 s → 94287082 (6 últimos dígitos: 287082)
+        var segredo = Totp.Base32(System.Text.Encoding.ASCII.GetBytes("12345678901234567890"));
+        Assert.Equal("287082", Totp.Gerar(Totp.Decodificar(segredo), 1));
+        Assert.NotNull(Totp.Verificar(segredo, "287082", DateTime.UnixEpoch.AddSeconds(59)));
+        Assert.Null(Totp.Verificar(segredo, "000000", DateTime.UnixEpoch.AddSeconds(59)));
+    }
+
+    [Fact]
+    public void Totp_aceita_deriva_de_um_passo_mas_nao_de_dois()
+    {
+        var segredo = Totp.NovoSegredo();
+        var agora = new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc);
+        var codigoPassoAnterior = Totp.Gerar(Totp.Decodificar(segredo), Totp.Passo(agora) - 1);
+        var codigoDoisPassos = Totp.Gerar(Totp.Decodificar(segredo), Totp.Passo(agora) - 2);
+        Assert.NotNull(Totp.Verificar(segredo, codigoPassoAnterior, agora));
+        Assert.Null(Totp.Verificar(segredo, codigoDoisPassos, agora));
+    }
+
+    [Fact]
+    public void Codigos_de_recuperacao_sao_de_uso_unico()
+    {
+        var (claros, hashes) = Totp.NovosCodigosRecuperacao();
+        var u = new CoffeeJa.Domain.Usuario { CodigosRecuperacaoHash = hashes };
+        Assert.True(Totp.ConsumirRecuperacao(u, claros[0]));
+        Assert.False(Totp.ConsumirRecuperacao(u, claros[0]));
+        Assert.True(Totp.ConsumirRecuperacao(u, claros[1].ToLowerInvariant()));
+    }
+
+    [Theory]
+    [InlineData(".pdf", "%PDF-1.7 abc", true)]
+    [InlineData(".pdf", "MZ programa", false)]
+    [InlineData(".xml", "<?xml version=\"1.0\"?><a/>", true)]
+    [InlineData(".xml", "MZ programa", false)]
+    [InlineData(".exe", "%PDF-1.7 abc", false)]
+    public async Task AssinaturaArquivo_confere_o_conteudo_real(string ext, string conteudo, bool esperado)
+    {
+        using var ms = new MemoryStream(System.Text.Encoding.Latin1.GetBytes(conteudo));
+        Assert.Equal(esperado, await AssinaturaArquivo.ConfereAsync(ms, ext, CancellationToken.None));
     }
 }

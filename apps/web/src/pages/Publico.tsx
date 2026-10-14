@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { erroSenha } from "../components/Seguranca";
 import { rotaInicial, useAuth } from "../lib/auth";
 import { AuthLayout } from "./Auth";
 
@@ -84,13 +85,13 @@ export function AtivarAcesso() {
 
   if (info.isLoading) return <div className="grid min-h-dvh place-items-center"><Spinner className="h-7 w-7" /></div>;
   if (info.error || !info.data) return <LinkInvalido />;
-  const invalida = senha.length < 8 || senha !== conf;
+  const invalida = !!erroSenha(senha) || senha !== conf;
 
   return (
     <AuthLayout titulo={`Bem-vindo(a), ${info.data.nome.split(" ")[0]}!`} subtitulo={`Crie sua senha para acessar o CoffeeJá da ${info.data.empresa}.`}>
       <form className="space-y-4" onSubmit={(e: FormEvent) => { e.preventDefault(); if (!invalida) m.mutate(); }}>
         <div className="flex items-center gap-2 rounded-xl bg-accent-soft p-3 text-sm text-accent"><ShieldCheck className="h-5 w-5 shrink-0" />Seu login será o seu CPF ({info.data.login}).</div>
-        <Field label="Nova senha" hint="Mínimo de 8 caracteres"><Input type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} /></Field>
+        <Field label="Nova senha" hint="Mínimo de 10 caracteres, com letras e número ou símbolo" error={senha ? erroSenha(senha) : undefined}><Input type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} /></Field>
         <Field label="Repita a senha" error={conf && senha !== conf ? "As senhas não conferem" : undefined}><Input type="password" autoComplete="new-password" value={conf} onChange={(e) => setConf(e.target.value)} /></Field>
         {m.error && <p role="alert" className="text-sm font-medium text-destructive">{m.error.message}</p>}
         <Button size="lg" className="w-full" disabled={invalida || m.isPending}>{m.isPending ? "Salvando..." : "Criar senha e entrar"}</Button>

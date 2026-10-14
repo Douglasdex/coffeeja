@@ -108,7 +108,7 @@ public static class OutrosEndpoints
                     f.Aprovado, f.Fundador, f.NotaMedia, f.TotalAvaliacoes, f.CriadoEm)).ToListAsync();
         });
 
-        a.MapPost("/fornecedores/{id:guid}/aprovar", async (Guid id, CoffeeJaDbContext db, INotificador notif) =>
+        a.MapPost("/fornecedores/{id:guid}/aprovar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, INotificador notif, AuditoriaService audit) =>
         {
             var f = await db.Fornecedores.FirstOrDefaultAsync(x => x.Id == id);
             if (f is null) return Results.NotFound();
@@ -117,13 +117,15 @@ public static class OutrosEndpoints
                 f.Aprovado = true;
                 await notif.NotificarFornecedorAsync(f.Id, "Cadastro aprovado", "Você já pode receber demandas e enviar propostas.", "/fornecedor/demandas");
                 await db.SaveChangesAsync();
+                await audit.RegistrarAsync("FORNECEDOR_APROVADO", u.UsuarioId(), id.ToString());
             }
             return Results.NoContent();
         });
 
-        a.MapPost("/fornecedores/{id:guid}/suspender", async (Guid id, CoffeeJaDbContext db) =>
+        a.MapPost("/fornecedores/{id:guid}/suspender", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, AuditoriaService audit) =>
         {
             var n = await db.Fornecedores.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Aprovado, false));
+            if (n > 0) await audit.RegistrarAsync("FORNECEDOR_SUSPENSO", u.UsuarioId(), id.ToString());
             return n == 0 ? Results.NotFound() : Results.NoContent();
         });
 
@@ -140,11 +142,19 @@ public static class OutrosEndpoints
                     db.Usuarios.Where(x => x.Id == c.UsuarioId).Select(x => x.Email).FirstOrDefault(),
                     db.Usuarios.Where(x => x.Id == c.UsuarioId).Select(x => x.Whatsapp).FirstOrDefault(), c.CriadoEm)).ToListAsync());
 
-        a.MapPost("/contratantes/{id:guid}/suspender", async (Guid id, CoffeeJaDbContext db) =>
-            await db.Contratantes.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Ativo, false)) == 0 ? Results.NotFound() : Results.NoContent());
+        a.MapPost("/contratantes/{id:guid}/suspender", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, AuditoriaService audit) =>
+        {
+            var n = await db.Contratantes.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Ativo, false));
+            if (n > 0) await audit.RegistrarAsync("CONTRATANTE_SUSPENSO", u.UsuarioId(), id.ToString());
+            return n == 0 ? Results.NotFound() : Results.NoContent();
+        });
 
-        a.MapPost("/contratantes/{id:guid}/ativar", async (Guid id, CoffeeJaDbContext db) =>
-            await db.Contratantes.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Ativo, true)) == 0 ? Results.NotFound() : Results.NoContent());
+        a.MapPost("/contratantes/{id:guid}/ativar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, AuditoriaService audit) =>
+        {
+            var n = await db.Contratantes.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Ativo, true));
+            if (n > 0) await audit.RegistrarAsync("CONTRATANTE_REATIVADO", u.UsuarioId(), id.ToString());
+            return n == 0 ? Results.NotFound() : Results.NoContent();
+        });
 
         // Quem mais indica: convites enviados por WhatsApp e cadastros concluídos (pelo código individual ou pelo link pessoal).
         a.MapGet("/convites/ranking", async (CoffeeJaDbContext db) =>

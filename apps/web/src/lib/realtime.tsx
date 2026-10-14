@@ -1,4 +1,3 @@
-import { sessao } from "@coffeeja/api-client";
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from "@microsoft/signalr";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
@@ -23,7 +22,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!usuario) return;
     const c = new HubConnectionBuilder()
-      .withUrl("/hubs/chat", { accessTokenFactory: () => sessao.token ?? "" })
+      .withUrl("/hubs/chat", { headers: { "X-Requested-With": "CoffeeJa" } }) // sessão pelo cookie HttpOnly
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .configureLogging(LogLevel.None)
       .build();

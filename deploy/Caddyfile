@@ -1,0 +1,48 @@
+# Servidor web (Hetzner): HTTPS automático, cabeçalhos de segurança/CSP, SPA estático e proxy para a API.
+# Ajuste o domínio e os caminhos. O Caddy roda na mesma máquina da API (por isso a API confia no loopback para X-Forwarded-*).
+
+coffeeja.com.br {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), payment=(), geolocation=(self)"
+		Cross-Origin-Opener-Policy "same-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' wss://coffeeja.com.br https://viacep.com.br; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+
+	# API e SignalR (WebSocket é repassado automaticamente)
+	@api path /api/* /hubs/*
+	handle @api {
+		request_body {
+			max_size 12MB
+		}
+		reverse_proxy 127.0.0.1:5080
+	}
+
+	# Health checks só para a própria máquina (monitoramento interno)
+	@health path /health*
+	handle @health {
+		respond 404
+	}
+
+	# SPA (apps/web/dist) — o service worker e o index não devem ser cacheados agressivamente
+	handle {
+		root * /var/www/coffeeja
+		@estaticos path /assets/*
+		header @estaticos Cache-Control "public, max-age=31536000, immutable"
+		header /sw.js Cache-Control "no-cache"
+		header /index.html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/coffeeja.log
+		format json
+	}
+}

@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Carregando, ChatSinal, DemandaCard, Descartaveis, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
 import { LocationPicker, type Local } from "../components/LocationPicker";
 import { PushToggle } from "../components/PushToggle";
+import { SegurancaCard } from "../components/Seguranca";
 import { AcessosFornecedor } from "./Equipe";
 import { PropostaChat } from "../components/PropostaChat";
 import { useAuth } from "../lib/auth";
@@ -283,6 +284,7 @@ export function FornecedorPerfil() {
       {usuario?.funcao === "AdminConta" && <AcessosFornecedor />}
 
       <PushToggle />
+      <SegurancaCard />
       <div className="space-y-2 pt-2">
         <p className="text-center text-sm text-muted-foreground">{usuario?.email}</p>
         <Button variant="outline" className="w-full" onClick={() => { sair(); nav("/login"); }}><LogOut className="h-4 w-4" />Sair da conta</Button>

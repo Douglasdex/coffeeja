@@ -1,4 +1,4 @@
-import { api, aoExpirarSessao, sessao, type Sessao, type Usuario } from "@coffeeja/api-client";
+import { api, aoExpirarSessao, type Sessao, type Usuario } from "@coffeeja/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -14,22 +14,21 @@ export const useAuth = () => useContext(Ctx);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-  const [carregando, setCarregando] = useState(() => !!sessao.token);
+  const [carregando, setCarregando] = useState(true);
 
   const sair = useCallback(() => {
-    sessao.set(null);
+    void api.auth.logout().catch(() => {});
     setUsuario(null);
     qc.clear();
   }, [qc]);
 
   useEffect(() => {
     aoExpirarSessao(sair);
-    if (!sessao.token) return;
-    api.auth.me().then(setUsuario).catch(() => sessao.set(null)).finally(() => setCarregando(false));
+    // A sessão está num cookie HttpOnly: só o servidor sabe se ela vale.
+    api.auth.me().then(setUsuario).catch(() => setUsuario(null)).finally(() => setCarregando(false));
   }, [sair]);
 
   const entrar = useCallback((s: Sessao) => {
-    sessao.set(s.token);
     qc.clear();
     setUsuario(s.usuario);
   }, [qc]);

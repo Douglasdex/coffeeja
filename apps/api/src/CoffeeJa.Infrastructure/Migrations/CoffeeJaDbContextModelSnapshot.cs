@@ -449,6 +449,49 @@ namespace CoffeeJa.Infrastructure.Migrations
                     b.ToTable("Fornecedores");
                 });
 
+            modelBuilder.Entity("CoffeeJa.Domain.LogAuditoria", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Acao")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Alvo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Detalhe")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Acao");
+
+                    b.HasIndex("CriadoEm");
+
+                    b.HasIndex("UsuarioId", "CriadoEm");
+
+                    b.ToTable("LogsAuditoria");
+                });
+
             modelBuilder.Entity("CoffeeJa.Domain.Mensagem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -724,6 +767,9 @@ namespace CoffeeJa.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("AceiteTermosEm")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("AprovacaoExpiraEm")
                         .HasColumnType("datetime2");
 
@@ -741,6 +787,9 @@ namespace CoffeeJa.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<DateTime?>("BloqueadoAte")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Cargo")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -749,6 +798,10 @@ namespace CoffeeJa.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("CodigosRecuperacaoHash")
+                        .HasMaxLength(800)
+                        .HasColumnType("nvarchar(800)");
 
                     b.Property<Guid?>("ContratanteId")
                         .HasColumnType("uniqueidentifier");
@@ -766,6 +819,12 @@ namespace CoffeeJa.Infrastructure.Migrations
                     b.Property<string>("Email")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("ExclusaoSolicitadaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FalhasLogin")
+                        .HasColumnType("int");
 
                     b.Property<Guid?>("FornecedorId")
                         .HasColumnType("uniqueidentifier");
@@ -788,6 +847,11 @@ namespace CoffeeJa.Infrastructure.Migrations
                     b.Property<int>("Papel")
                         .HasColumnType("int");
 
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.Property<string>("SenhaHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -808,6 +872,20 @@ namespace CoffeeJa.Infrastructure.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Telefone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("TotpAtivo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TotpSegredoProtegido")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("TotpUltimoPasso")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("VersaoTermos")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 

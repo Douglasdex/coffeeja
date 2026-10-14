@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Carregando, ChatSinal, DemandaCard, Descartaveis, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
 import { LocationPicker, localValido, localVazio, type Local } from "../components/LocationPicker";
 import { PushToggle } from "../components/PushToggle";
+import { SegurancaCard } from "../components/Seguranca";
 import { PropostaChat } from "../components/PropostaChat";
 import { useAuth } from "../lib/auth";
 import { dataHora, dataLonga, hojeIso, hora, moeda } from "../lib/format";
@@ -373,6 +374,7 @@ export function Conta() {
       </Card></Link>
 
       <PushToggle />
+      <SegurancaCard />
       <Button variant="outline" className="w-full" onClick={() => { sair(); nav("/login"); }}>Sair da conta</Button>
     </div>
   );

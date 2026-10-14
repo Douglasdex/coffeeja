@@ -5,7 +5,7 @@ public class JwtOptions
     public string Issuer { get; set; } = "coffeeja";
     public string Audience { get; set; } = "coffeeja-web";
     public string Key { get; set; } = "";
-    public int ExpiraEmMinutos { get; set; } = 60 * 12;
+    public int ExpiraEmMinutos { get; set; } = 60 * 8;
 }
 
 public class PlataformaOptions
@@ -22,6 +22,13 @@ public class PlataformaOptions
     public int ValidadeLinkDias { get; set; } = 7;
     /// <summary>Tentativas por minuto/IP nos endpoints de login, cadastro e links públicos.</summary>
     public int LimiteAuthPorMinuto { get; set; } = 10;
+    /// <summary>Limite geral de requisições por minuto (por usuário autenticado ou IP).</summary>
+    public int LimiteGlobalPorMinuto { get; set; } = 600;
+    public int LoginTentativasMax { get; set; } = 5;
+    public int LoginBloqueioMinutos { get; set; } = 15;
+    /// <summary>IPs de proxies reversos confiáveis (Caddy/Nginx/balanceador). Vazio = só loopback.</summary>
+    public string[] ProxiesConfiaveis { get; set; } = [];
+    public string PastaChaves { get; set; } = "storage/chaves";
     public string? AdminEmail { get; set; }
     public string? AdminSenha { get; set; }
 }

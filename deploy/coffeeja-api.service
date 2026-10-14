@@ -1,0 +1,37 @@
+# /etc/systemd/system/coffeeja-api.service
+# Publicar com: dotnet publish apps/api/src/CoffeeJa.Api -c Release -o /opt/coffeeja/api
+[Unit]
+Description=CoffeeJa API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=coffeeja
+Group=coffeeja
+WorkingDirectory=/opt/coffeeja/api
+ExecStart=/usr/bin/dotnet /opt/coffeeja/api/CoffeeJa.Api.dll
+Restart=always
+RestartSec=5
+# Segredos ficam FORA do repositório, com permissão 600 e dono root: /etc/coffeeja/api.env (veja api.env.example)
+EnvironmentFile=/etc/coffeeja/api.env
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5080
+
+# Endurecimento do processo
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+# Única pasta gravável: notas fiscais e chaves do Data Protection (incluir no backup!)
+ReadWritePaths=/var/coffeeja
+
+[Install]
+WantedBy=multi-user.target

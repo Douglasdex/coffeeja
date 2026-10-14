@@ -76,7 +76,7 @@ public static partial class PropostaEndpoints
         g.MapGet("/minhas", async (ClaimsPrincipal u, CoffeeJaDbContext db) =>
         {
             var fid = u.FornecedorId();
-            var lista = await db.Propostas.AsNoTracking().Where(p => p.FornecedorId == fid).OrderByDescending(p => p.CriadoEm)
+            var lista = await db.Propostas.AsNoTracking().Where(p => p.FornecedorId == fid).OrderByDescending(p => p.CriadoEm).Take(300)
                 .Select(p => new MinhaPropostaDto(p.Id, p.DemandaId, p.Demanda.Titulo, DateOnly.FromDateTime(p.Demanda.DataEvento), p.Demanda.Cidade,
                     p.Demanda.NumeroPessoas, p.ValorTotal, p.Versao, p.Status, p.AjusteSolicitado, p.Demanda.Status,
                     db.Pedidos.Where(x => x.PropostaId == p.Id).Select(x => (Guid?)x.Id).FirstOrDefault(), p.CriadoEm, 0, false)).ToListAsync();
@@ -208,7 +208,7 @@ public static partial class PropostaEndpoints
             else await notif.NotificarFornecedorAsync(p.FornecedorId, "Nova mensagem", p.Demanda.Titulo, "/fornecedor/propostas");
             await db.SaveChangesAsync();
             return Results.Ok(new MensagemDto(m.Id, m.RemetenteId, true, m.Texto, m.CriadoEm));
-        });
+        }).RequireRateLimiting("mensagens");
     }
 
     private static Task<Proposta?> CarregarDoContratante(CoffeeJaDbContext db, Guid id, ClaimsPrincipal u)

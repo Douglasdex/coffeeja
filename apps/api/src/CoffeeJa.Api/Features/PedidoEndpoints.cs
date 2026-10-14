@@ -39,7 +39,7 @@ public static class PedidoEndpoints
             var ehForn = fid is not null;
             return await db.Pedidos.AsNoTracking()
                 .Where(p => (cid != null && p.ContratanteId == cid) || (fid != null && p.FornecedorId == fid))
-                .OrderByDescending(p => p.CriadoEm)
+                .OrderByDescending(p => p.CriadoEm).Take(300)
                 .Select(p => new PedidoResumoDto(p.Id, p.DemandaId, p.Demanda.Titulo, DateOnly.FromDateTime(p.Demanda.DataEvento),
                     TimeOnly.FromTimeSpan(p.Demanda.HoraInicio), p.Demanda.Cidade, p.Demanda.NumeroPessoas, p.Valor, p.Status, p.StatusPagamento,
                     p.NotaFiscalArquivo != null, ehForn ? p.Demanda.Contratante.NomeFantasia ?? p.Demanda.Contratante.Empresa : p.Proposta.Fornecedor.NomeFantasia, p.CriadoEm)).ToListAsync();
@@ -87,7 +87,7 @@ public static class PedidoEndpoints
 
         // Inclusão da NF no sistema (fornecedor emite; contratante também pode anexar a sua cópia)
         g.MapPost("/{id:guid}/nota-fiscal", async ([FromForm] string? numero, IFormFile arquivo, Guid id, ClaimsPrincipal u, CoffeeJaDbContext db,
-            IArquivoStorage storage, IOptions<PlataformaOptions> plat, INotificador notif, CancellationToken ct) =>
+            IArquivoStorage storage, IOptions<PlataformaOptions> plat, INotificador notif, AuditoriaService audit, CancellationToken ct) =>
         {
             var p = await Carregar(db, id, u);
             if (p is null) return Results.NotFound();
@@ -99,6 +99,7 @@ public static class PedidoEndpoints
                     (numero is { Length: > 50 }, nameof(numero), "Número muito longo.")) is { } erro) return erro;
 
             await using var stream = arquivo.OpenReadStream();
+            if (!await AssinaturaArquivo.ConfereAsync(stream, ext, ct)) return Results.ValidationProblem(new Dictionary<string, string[]> { [nameof(arquivo)] = ["O conteúdo do arquivo não corresponde ao tipo informado."] });
             p.NotaFiscalArquivo = await storage.SalvarAsync(stream, ext, ct);
             p.NotaFiscalNumero = numero?.Trim();
             p.NotaFiscalNomeOriginal = Path.GetFileName(arquivo.FileName);
@@ -108,15 +109,17 @@ public static class PedidoEndpoints
             if (souForn) await notif.NotificarContratanteAsync(p.ContratanteId, p.ContratadoPorId, "Nota fiscal anexada", p.Demanda.Titulo, $"/contratante/pedidos/{p.Id}");
             else await notif.NotificarFornecedorAsync(p.FornecedorId, "Nota fiscal anexada", p.Demanda.Titulo, $"/fornecedor/pedidos/{p.Id}");
             await db.SaveChangesAsync(ct);
+            await audit.RegistrarAsync("NF_ANEXADA", u.UsuarioId(), p.Id.ToString());
             return Results.NoContent();
-        }).DisableAntiforgery();
+        }).DisableAntiforgery().RequireRateLimiting("upload");
 
-        g.MapGet("/{id:guid}/nota-fiscal", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, IArquivoStorage storage) =>
+        g.MapGet("/{id:guid}/nota-fiscal", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, IArquivoStorage storage, AuditoriaService audit) =>
         {
             var p = await Carregar(db, id, u);
             if (p?.NotaFiscalArquivo is null) return Results.NotFound();
             var ext = Path.GetExtension(p.NotaFiscalArquivo);
             var tipo = ext switch { ".pdf" => "application/pdf", ".xml" => "application/xml", ".png" => "image/png", _ => "image/jpeg" };
+            await audit.RegistrarAsync("NF_BAIXADA", u.UsuarioId(), p.Id.ToString());
             return Results.File(storage.Abrir(p.NotaFiscalArquivo), tipo, p.NotaFiscalNomeOriginal ?? $"nota-fiscal{ext}");
         });
 

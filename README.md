@@ -95,6 +95,15 @@ Sugestão de topologia no servidor: **Caddy** (HTTPS automático) servindo `apps
 
 > Se você já tinha um banco local de versões anteriores, rode `npm run db:reset` uma vez (o modelo de contas mudou).
 
+## Segurança
+
+Resumo em [docs/SEGURANCA.md](docs/SEGURANCA.md) (o que está feito, o que falta antes de produção e o plano de escalabilidade). Pontos que afetam o uso no dia a dia:
+
+- A sessão fica em **cookie HttpOnly**; senhas exigem **10+ caracteres**; 5 erros de login bloqueiam a conta por 15 min.
+- O **administrador do CoffeeJá precisa ativar a verificação em duas etapas** (app autenticador) no primeiro acesso.
+- Em produção a API não sobe com configuração de desenvolvimento (veja `deploy/api.env.example`, `deploy/Caddyfile`, `deploy/coffeeja-api.service`).
+- Vulnerabilidades: veja [SECURITY.md](SECURITY.md).
+
 ## Tempo real, push e admin
 
 - **Chat em tempo real:** SignalR (`/hubs/chat`). A escrita segue pela API REST; o servidor apenas avisa os participantes (o front invalida o cache). Há polling de 60 s como rede de segurança.
