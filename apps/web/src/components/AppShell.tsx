@@ -1,7 +1,7 @@
 import { api } from "@coffeeja/api-client";
 import { cn } from "@coffeeja/ui";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, ClipboardList, Coffee, FileText, Home, Inbox, LogOut, Moon, Plus, Send, ShieldCheck, Sun, User, Utensils, type LucideIcon } from "lucide-react";
+import { Bell, ClipboardList, Coffee, FileText, Home, Inbox, LogOut, Moon, Plus, Send, Share2, ShieldCheck, Sun, User, Utensils, type LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
@@ -64,6 +64,7 @@ export function AppShell() {
         <Bell className="h-5 w-5" />
         {naoLidas > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">{naoLidas > 9 ? "9+" : naoLidas}</span>}
       </button>
+      <button onClick={() => nav("/convidar")} aria-label="Convidar" className="grid h-11 w-11 place-items-center rounded-xl bg-success-soft text-success"><Share2 className="h-5 w-5" /></button>
       <button onClick={alternar} aria-label={escuro ? "Tema claro" : "Tema escuro"} className="grid h-11 w-11 place-items-center rounded-xl bg-lavender-soft text-lavender">
         {escuro ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </button>

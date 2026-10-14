@@ -8,6 +8,9 @@ import { Cadastro, Login } from "./pages/Auth";
 import { Conta, ContratanteDemanda, ContratanteDemandas, ContratanteInicio, NovaDemanda } from "./pages/Contratante";
 import { FornecedorDemanda, FornecedorDemandas, FornecedorInicio, FornecedorPerfil, FornecedorPropostas } from "./pages/Fornecedor";
 import { AdminPainel } from "./pages/Admin";
+import { Convidar } from "./pages/Convidar";
+import { Equipe } from "./pages/Equipe";
+import { AprovarFuncionario, AtivarAcesso } from "./pages/Publico";
 import { Notificacoes } from "./pages/Notificacoes";
 import { PedidoDetalhe, PedidosLista } from "./pages/Pedidos";
 
@@ -31,9 +34,12 @@ export default function App() {
       <Route path="/" element={<Raiz />} />
       <Route path="/login" element={<Login />} />
       <Route path="/cadastro" element={<Cadastro />} />
+      <Route path="/aprovar/:token" element={<AprovarFuncionario />} />
+      <Route path="/ativar/:token" element={<AtivarAcesso />} />
 
       <Route element={<Protegida><AppShell /></Protegida>}>
         <Route path="/notificacoes" element={<Notificacoes />} />
+        <Route path="/convidar" element={<Convidar />} />
       </Route>
 
       <Route path="/contratante" element={<Protegida papel="Contratante"><AppShell /></Protegida>}>
@@ -44,6 +50,7 @@ export default function App() {
         <Route path="pedidos" element={<PedidosLista />} />
         <Route path="pedidos/:id" element={<PedidoDetalhe />} />
         <Route path="conta" element={<Conta />} />
+        <Route path="equipe" element={<Equipe />} />
       </Route>
 
       <Route path="/fornecedor" element={<Protegida papel="Fornecedor"><AppShell /></Protegida>}>

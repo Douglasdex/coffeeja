@@ -17,6 +17,11 @@ public class PlataformaOptions
     public string PastaArquivos { get; set; } = "storage";
     public long TamanhoMaximoNotaFiscalBytes { get; set; } = 10 * 1024 * 1024;
     public string[] Origens { get; set; } = ["http://localhost:5173"];
+    /// <summary>URL pública do app (usada nos links enviados por WhatsApp).</summary>
+    public string UrlPublica { get; set; } = "http://localhost:5173";
+    public int ValidadeLinkDias { get; set; } = 7;
+    /// <summary>Tentativas por minuto/IP nos endpoints de login, cadastro e links públicos.</summary>
+    public int LimiteAuthPorMinuto { get; set; } = 10;
     public string? AdminEmail { get; set; }
     public string? AdminSenha { get; set; }
 }

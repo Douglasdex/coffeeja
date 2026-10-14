@@ -48,7 +48,7 @@ public static partial class PropostaEndpoints
 
             var prop = new Proposta { DemandaId = d.Id, FornecedorId = f.Id, ValorTotal = r.ValorTotal, Cardapio = r.Cardapio.Trim(), Observacao = r.Observacao };
             db.Propostas.Add(prop);
-            notif.Notificar(d.Contratante.UsuarioId, "Nova proposta recebida", $"{f.NomeFantasia} · R$ {r.ValorTotal:N2}", $"/contratante/demandas/{d.Id}");
+            await notif.NotificarContratanteAsync(d.ContratanteId, d.SolicitanteId, "Nova proposta recebida", $"{f.NomeFantasia} · R$ {r.ValorTotal:N2}", $"/contratante/demandas/{d.Id}");
             await db.SaveChangesAsync();
             return Results.Created($"/api/propostas/{prop.Id}", new { prop.Id });
         }).WithTags("Propostas").RequireAuthorization(Politicas.Fornecedor);
@@ -102,7 +102,7 @@ public static partial class PropostaEndpoints
             p.AjusteSolicitado = r.Mensagem.Trim();
             p.AtualizadoEm = DateTime.UtcNow;
             p.Demanda.Status = StatusDemanda.EmNegociacao;
-            notif.Notificar(p.Fornecedor.UsuarioId, "Ajuste solicitado", p.Demanda.Titulo, "/fornecedor/propostas");
+            await notif.NotificarFornecedorAsync(p.FornecedorId, "Ajuste solicitado", p.Demanda.Titulo, "/fornecedor/propostas");
             await db.SaveChangesAsync();
             return Results.NoContent();
         }).RequireAuthorization(Politicas.Contratante);
@@ -124,7 +124,7 @@ public static partial class PropostaEndpoints
             p.Versao++;
             p.Status = StatusProposta.Enviada;
             p.AtualizadoEm = DateTime.UtcNow;
-            notif.Notificar(p.Demanda.Contratante.UsuarioId, "Proposta atualizada", $"{p.Demanda.Titulo} · nova versão (v{p.Versao})", $"/contratante/demandas/{p.DemandaId}");
+            await notif.NotificarContratanteAsync(p.Demanda.ContratanteId, p.Demanda.SolicitanteId, "Proposta atualizada", $"{p.Demanda.Titulo} · nova versão (v{p.Versao})", $"/contratante/demandas/{p.DemandaId}");
             await db.SaveChangesAsync();
             return Results.NoContent();
         }).RequireAuthorization(Politicas.Fornecedor);
@@ -154,7 +154,7 @@ public static partial class PropostaEndpoints
             foreach (var o in outras)
             {
                 o.Status = StatusProposta.Recusada;
-                notif.Notificar(o.Fornecedor.UsuarioId, "Proposta não selecionada", p.Demanda.Titulo);
+                await notif.NotificarFornecedorAsync(o.FornecedorId, "Proposta não selecionada", p.Demanda.Titulo);
             }
 
             p.Status = StatusProposta.Aceita;
@@ -164,10 +164,11 @@ public static partial class PropostaEndpoints
                 DemandaId = p.DemandaId, PropostaId = p.Id, ContratanteId = p.Demanda.ContratanteId, FornecedorId = p.FornecedorId,
                 Valor = p.ValorTotal, ComissaoPercentual = plat.Value.ComissaoPercentual,
                 StatusPagamento = pagamento.StatusInicial, ProvedorPagamento = pagamento.Nome,
+                ContratadoPorId = u.UsuarioId(), ContratadoPorNome = u.NomeUsuario(), ContratadoPorSetor = u.SetorUsuario(),
             };
             pedido.Eventos.Add(new EventoPedido { Descricao = "Pedido confirmado" });
             db.Pedidos.Add(pedido);
-            notif.Notificar(p.Fornecedor.UsuarioId, "Proposta aceita! 🎉", p.Demanda.Titulo, $"/fornecedor/pedidos/{pedido.Id}");
+            await notif.NotificarFornecedorAsync(p.FornecedorId, "Proposta aceita! 🎉", p.Demanda.Titulo, $"/fornecedor/pedidos/{pedido.Id}");
             try { await db.SaveChangesAsync(); }
             catch (DbUpdateException) { return Results.Conflict(new { detail = "Esta demanda já foi contratada." }); }
             return Results.Ok(new { PedidoId = pedido.Id });
@@ -203,8 +204,8 @@ public static partial class PropostaEndpoints
             var texto = p.Status == StatusProposta.Aceita ? r.Texto.Trim() : OcultarContatos(r.Texto.Trim());
             var m = new Mensagem { PropostaId = id, RemetenteId = u.UsuarioId(), Texto = texto };
             db.Mensagens.Add(m);
-            var destino = ehFornecedor ? p.Demanda.Contratante.UsuarioId : p.Fornecedor.UsuarioId;
-            notif.Notificar(destino, "Nova mensagem", p.Demanda.Titulo, ehFornecedor ? $"/contratante/demandas/{p.DemandaId}" : "/fornecedor/propostas");
+            if (ehFornecedor) await notif.NotificarContratanteAsync(p.Demanda.ContratanteId, p.Demanda.SolicitanteId, "Nova mensagem", p.Demanda.Titulo, $"/contratante/demandas/{p.DemandaId}");
+            else await notif.NotificarFornecedorAsync(p.FornecedorId, "Nova mensagem", p.Demanda.Titulo, "/fornecedor/propostas");
             await db.SaveChangesAsync();
             return Results.Ok(new MensagemDto(m.Id, m.RemetenteId, true, m.Texto, m.CriadoEm));
         });

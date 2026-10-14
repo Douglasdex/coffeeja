@@ -12,6 +12,12 @@ export function dataLonga(iso: string) {
 }
 export const hora = (t: string) => t.slice(0, 5);
 
+/** ISO em UTC (sem "Z" vindo do servidor) → "14/10 12:42" no fuso do navegador. */
+export function dataHora(iso: string) {
+  const d = new Date(iso.endsWith("Z") || /[+-]\d\d:\d\d$/.test(iso) ? iso : iso + "Z");
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 export function haQuanto(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso.endsWith("Z") ? iso : iso + "Z").getTime()) / 1000);
   if (s < 60) return "agora";

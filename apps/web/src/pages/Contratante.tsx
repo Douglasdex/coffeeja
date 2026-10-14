@@ -1,7 +1,7 @@
 import { Descartavel, api, descartavelLabels, type DemandaResumo, type Estilo, type Proposta } from "@coffeeja/api-client";
 import { Badge, Button, Card, CardContent, Chip, EmptyState, Field, Input, PageTitle, Select, Stars, StatCard, Textarea, cn } from "@coffeeja/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, ClipboardList, CreditCard, FileText, Inbox, MessageCircle, Minus, Plus, Sparkles, Trophy, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Building2, Check, ChevronRight, ClipboardList, FileText, Gift, Users, Inbox, MessageCircle, Minus, Plus, Sparkles, Trophy, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Carregando, ChatSinal, DemandaCard, Descartaveis, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
@@ -9,7 +9,7 @@ import { LocationPicker, localValido, localVazio, type Local } from "../componen
 import { PushToggle } from "../components/PushToggle";
 import { PropostaChat } from "../components/PropostaChat";
 import { useAuth } from "../lib/auth";
-import { dataLonga, hojeIso, hora, moeda } from "../lib/format";
+import { dataHora, dataLonga, hojeIso, hora, moeda } from "../lib/format";
 import { StatusDemandaBadge, StatusPropostaBadge, labelEstilo } from "../lib/labels";
 import { useToast } from "../lib/toast";
 
@@ -268,6 +268,7 @@ export function ContratanteDemanda() {
         </div>
         <div className="flex flex-wrap gap-2"><Restricoes mask={x.restricoes} /><Descartaveis mask={x.descartaveis} /></div>
         {x.observacoes && <p className="rounded-xl bg-muted/60 p-3 text-sm">{x.observacoes}</p>}
+        {x.solicitadoPor && <p className="text-sm text-muted-foreground">Solicitado por <b className="text-foreground">{x.solicitadoPor}</b>{x.solicitanteSetor ? ` · ${x.solicitanteSetor}` : ""} em {dataHora(x.criadoEm)}</p>}
         {x.pedidoId && <Button asChild><Link to={`/contratante/pedidos/${x.pedidoId}`}>Ver pedido</Link></Button>}
       </CardContent></Card>
 
@@ -346,14 +347,31 @@ function PropostaCard({ p, demandaAberta, onAceita }: { p: Proposta; demandaAber
 export function Conta() {
   const { usuario, sair } = useAuth();
   const nav = useNavigate();
+  const pj = usuario?.tipoConta === "PessoaJuridica";
+  const admin = usuario?.funcao === "AdminConta";
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <PageTitle title="Minha conta" />
       <Card><CardContent className="space-y-1">
-        <div className="text-lg font-semibold">{usuario?.nome}</div>
-        <div className="text-sm text-muted-foreground">{usuario?.email}</div>
-        {usuario?.empresa && <div className="flex items-center gap-2 pt-2 text-sm"><CreditCard className="h-4 w-4 text-muted-foreground" />{usuario.empresa}</div>}
+        <div className="flex flex-wrap items-center gap-2 text-lg font-semibold">{usuario?.nome}<Badge tone={admin ? "lavender" : "neutral"}>{pj ? (admin ? "Administrador da empresa" : "Funcionário") : "Pessoa física"}</Badge></div>
+        <div className="text-sm text-muted-foreground">{usuario?.email ?? "Login pelo CPF"}</div>
+        {usuario?.setor && <div className="text-sm text-muted-foreground">Setor: {usuario.setor}</div>}
+        {usuario?.empresa && <div className="flex items-center gap-2 pt-2 text-sm"><Building2 className="h-4 w-4 text-muted-foreground" />{usuario.empresa}</div>}
       </CardContent></Card>
+
+      {pj && admin && (
+        <Link to="/contratante/equipe"><Card className="flex items-center gap-3 p-4 transition hover:-translate-y-0.5">
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent-soft text-accent"><Users className="h-5 w-5" /></span>
+          <div className="min-w-0 flex-1"><div className="font-semibold">Minha equipe</div><div className="text-sm text-muted-foreground">Cadastre funcionários que podem pedir em nome da empresa</div></div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </Card></Link>
+      )}
+      <Link to="/convidar"><Card className="flex items-center gap-3 p-4 transition hover:-translate-y-0.5">
+        <span className="grid h-11 w-11 place-items-center rounded-xl bg-lavender-soft text-lavender"><Gift className="h-5 w-5" /></span>
+        <div className="min-w-0 flex-1"><div className="font-semibold">Convidar para o CoffeeJá</div><div className="text-sm text-muted-foreground">Envie um convite por WhatsApp</div></div>
+        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      </Card></Link>
+
       <PushToggle />
       <Button variant="outline" className="w-full" onClick={() => { sair(); nav("/login"); }}>Sair da conta</Button>
     </div>

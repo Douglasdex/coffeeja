@@ -4,6 +4,7 @@ using System.Text;
 using CoffeeJa.Api.Common;
 using CoffeeJa.Domain;
 using CoffeeJa.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -18,11 +19,13 @@ public class TokenService(IOptions<JwtOptions> opt)
         {
             new(ClaimTypes.NameIdentifier, u.Id.ToString()),
             new(ClaimTypes.Name, u.Nome),
-            new(ClaimTypes.Email, u.Email),
+            new(ClaimTypes.Email, u.Email ?? ""),
             new(ClaimTypes.Role, u.Papel.ToString()),
         };
-        if (u.Contratante is not null) claims.Add(new("contratante_id", u.Contratante.Id.ToString()));
-        if (u.Fornecedor is not null) claims.Add(new("fornecedor_id", u.Fornecedor.Id.ToString()));
+        claims.Add(new("funcao", u.Funcao.ToString()));
+        if (!string.IsNullOrWhiteSpace(u.Setor)) claims.Add(new("setor", u.Setor));
+        if (u.ContratanteId is { } cid) claims.Add(new("contratante_id", cid.ToString()));
+        if (u.FornecedorId is { } fid) claims.Add(new("fornecedor_id", fid.ToString()));
 
         var cred = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.Key)), SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(o.Issuer, o.Audience, claims, expires: DateTime.UtcNow.AddMinutes(o.ExpiraEmMinutos), signingCredentials: cred);
@@ -34,12 +37,29 @@ public class TokenService(IOptions<JwtOptions> opt)
 public interface INotificador
 {
     void Notificar(Guid usuarioId, string titulo, string texto, string? link = null);
+    /// <summary>Avisa todos os usuários ativos do buffet.</summary>
+    Task NotificarFornecedorAsync(Guid fornecedorId, string titulo, string texto, string? link = null);
+    /// <summary>Avisa os administradores da conta contratante e, opcionalmente, quem fez a solicitação.</summary>
+    Task NotificarContratanteAsync(Guid contratanteId, Guid? solicitanteId, string titulo, string texto, string? link = null);
 }
 
 public class NotificadorEmBanco(CoffeeJaDbContext db) : INotificador
 {
     public void Notificar(Guid usuarioId, string titulo, string texto, string? link = null)
         => db.Notificacoes.Add(new Notificacao { UsuarioId = usuarioId, Titulo = titulo, Texto = texto, Link = link });
+
+    public async Task NotificarFornecedorAsync(Guid fornecedorId, string titulo, string texto, string? link = null)
+    {
+        var ids = await db.Usuarios.Where(u => u.FornecedorId == fornecedorId && u.Status == StatusUsuario.Ativo).Select(u => u.Id).ToListAsync();
+        foreach (var id in ids) Notificar(id, titulo, texto, link);
+    }
+
+    public async Task NotificarContratanteAsync(Guid contratanteId, Guid? solicitanteId, string titulo, string texto, string? link = null)
+    {
+        var ids = await db.Usuarios.Where(u => u.ContratanteId == contratanteId && u.Status == StatusUsuario.Ativo
+                && (u.Funcao == FuncaoUsuario.AdminConta || u.Id == solicitanteId)).Select(u => u.Id).ToListAsync();
+        foreach (var id in ids) Notificar(id, titulo, texto, link);
+    }
 }
 
 /// <summary>Abstração do meio de pagamento. No início o pagamento é feito fora da plataforma (Manual).

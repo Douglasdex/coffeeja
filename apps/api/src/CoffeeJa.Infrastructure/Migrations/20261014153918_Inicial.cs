@@ -30,6 +30,93 @@ namespace CoffeeJa.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Contratantes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Tipo = table.Column<int>(type: "int", nullable: false),
+                    Empresa = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    NomeFantasia = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Cnpj = table.Column<string>(type: "nvarchar(14)", maxLength: 14, nullable: true),
+                    Cpf = table.Column<string>(type: "nvarchar(11)", maxLength: 11, nullable: true),
+                    NotaFiscalMesmoEndereco = table.Column<bool>(type: "bit", nullable: false),
+                    Ativo = table.Column<bool>(type: "bit", nullable: false),
+                    UsuarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Endereco_Bairro = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Endereco_Cep = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: false),
+                    Endereco_Cidade = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Endereco_Complemento = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Endereco_Logradouro = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Endereco_Numero = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Endereco_Uf = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    EnderecoNotaFiscal_Bairro = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    EnderecoNotaFiscal_Cep = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: false),
+                    EnderecoNotaFiscal_Cidade = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    EnderecoNotaFiscal_Complemento = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    EnderecoNotaFiscal_Logradouro = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    EnderecoNotaFiscal_Numero = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    EnderecoNotaFiscal_Uf = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Contratantes", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Convites",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ConvidanteId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Codigo = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    Telefone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    NomeConvidado = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    CadastradoUsuarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CadastradoEm = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Convites", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Fornecedores",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UsuarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    NomeFantasia = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    RazaoSocial = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Cnpj = table.Column<string>(type: "nvarchar(14)", maxLength: 14, nullable: true),
+                    Descricao = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    Cidade = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Uf = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    Latitude = table.Column<double>(type: "float", nullable: false),
+                    Longitude = table.Column<double>(type: "float", nullable: false),
+                    RaioAtendimentoKm = table.Column<int>(type: "int", nullable: false),
+                    AtendeRestricoes = table.Column<int>(type: "int", nullable: false),
+                    Aprovado = table.Column<bool>(type: "bit", nullable: false),
+                    Fundador = table.Column<bool>(type: "bit", nullable: false),
+                    NotaMedia = table.Column<double>(type: "float", nullable: false),
+                    TotalAvaliacoes = table.Column<int>(type: "int", nullable: false),
+                    Endereco_Bairro = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Endereco_Cep = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: false),
+                    Endereco_Cidade = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Endereco_Complemento = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Endereco_Logradouro = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Endereco_Numero = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Endereco_Uf = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Fornecedores", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Notificacoes",
                 columns: table => new
                 {
@@ -47,74 +134,19 @@ namespace CoffeeJa.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Usuarios",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Nome = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    Email = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Telefone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
-                    SenhaHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Papel = table.Column<int>(type: "int", nullable: false),
-                    Ativo = table.Column<bool>(type: "bit", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Usuarios", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Contratantes",
+                name: "PushInscricoes",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UsuarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Empresa = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Cnpj = table.Column<string>(type: "nvarchar(18)", maxLength: 18, nullable: true),
+                    Endpoint = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    P256dh = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Auth = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Contratantes", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Contratantes_Usuarios_UsuarioId",
-                        column: x => x.UsuarioId,
-                        principalTable: "Usuarios",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Fornecedores",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    UsuarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    NomeFantasia = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Cnpj = table.Column<string>(type: "nvarchar(18)", maxLength: 18, nullable: true),
-                    Descricao = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
-                    Cidade = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Uf = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
-                    Latitude = table.Column<double>(type: "float", nullable: false),
-                    Longitude = table.Column<double>(type: "float", nullable: false),
-                    RaioAtendimentoKm = table.Column<int>(type: "int", nullable: false),
-                    AtendeRestricoes = table.Column<int>(type: "int", nullable: false),
-                    Aprovado = table.Column<bool>(type: "bit", nullable: false),
-                    Fundador = table.Column<bool>(type: "bit", nullable: false),
-                    NotaMedia = table.Column<double>(type: "float", nullable: false),
-                    TotalAvaliacoes = table.Column<int>(type: "int", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Fornecedores", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Fornecedores_Usuarios_UsuarioId",
-                        column: x => x.UsuarioId,
-                        principalTable: "Usuarios",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                    table.PrimaryKey("PK_PushInscricoes", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -133,10 +165,14 @@ namespace CoffeeJa.Infrastructure.Migrations
                     Longitude = table.Column<double>(type: "float", nullable: false),
                     NumeroPessoas = table.Column<int>(type: "int", nullable: false),
                     Restricoes = table.Column<int>(type: "int", nullable: false),
+                    Descartaveis = table.Column<int>(type: "int", nullable: false),
                     Estilo = table.Column<int>(type: "int", nullable: false),
                     Observacoes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
                     PrazoPropostas = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Status = table.Column<int>(type: "int", nullable: false),
+                    SolicitanteId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    SolicitanteNome = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    SolicitanteSetor = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -174,6 +210,52 @@ namespace CoffeeJa.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Usuarios",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Nome = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Cpf = table.Column<string>(type: "nvarchar(11)", maxLength: 11, nullable: true),
+                    Telefone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Whatsapp = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Cargo = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Setor = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    SenhaHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Papel = table.Column<int>(type: "int", nullable: false),
+                    Funcao = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    SuperiorNome = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    SuperiorWhatsapp = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    AprovacaoTokenHash = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
+                    AprovacaoExpiraEm = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    AprovadoEm = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    MotivoRecusa = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    AtivacaoTokenHash = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
+                    AtivacaoExpiraEm = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CriadoPorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CodigoConvite = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    IndicadoPorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ContratanteId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    FornecedorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Usuarios", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Usuarios_Contratantes_ContratanteId",
+                        column: x => x.ContratanteId,
+                        principalTable: "Contratantes",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Usuarios_Fornecedores_FornecedorId",
+                        column: x => x.FornecedorId,
+                        principalTable: "Fornecedores",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Propostas",
                 columns: table => new
                 {
@@ -187,6 +269,8 @@ namespace CoffeeJa.Infrastructure.Migrations
                     Status = table.Column<int>(type: "int", nullable: false),
                     AjusteSolicitado = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
                     AtualizadoEm = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ContratanteLeuEm = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FornecedorLeuEm = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CriadoEm = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -240,6 +324,9 @@ namespace CoffeeJa.Infrastructure.Migrations
                     Status = table.Column<int>(type: "int", nullable: false),
                     StatusPagamento = table.Column<int>(type: "int", nullable: false),
                     ProvedorPagamento = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    ContratadoPorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ContratadoPorNome = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    ContratadoPorSetor = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     NotaFiscalNumero = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     NotaFiscalArquivo = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
                     NotaFiscalNomeOriginal = table.Column<string>(type: "nvarchar(260)", maxLength: 260, nullable: true),
@@ -293,10 +380,22 @@ namespace CoffeeJa.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Contratantes_UsuarioId",
+                name: "IX_Contratantes_Cnpj",
                 table: "Contratantes",
-                column: "UsuarioId",
+                column: "Cnpj",
+                unique: true,
+                filter: "[Cnpj] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Convites_Codigo",
+                table: "Convites",
+                column: "Codigo",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Convites_ConvidanteId",
+                table: "Convites",
+                column: "ConvidanteId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Demandas_ContratanteId",
@@ -319,15 +418,16 @@ namespace CoffeeJa.Infrastructure.Migrations
                 column: "PedidoId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Fornecedores_Cnpj",
+                table: "Fornecedores",
+                column: "Cnpj",
+                unique: true,
+                filter: "[Cnpj] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Fornecedores_Latitude_Longitude",
                 table: "Fornecedores",
                 columns: new[] { "Latitude", "Longitude" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Fornecedores_UsuarioId",
-                table: "Fornecedores",
-                column: "UsuarioId",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Mensagens_PropostaId_CriadoEm",
@@ -377,10 +477,60 @@ namespace CoffeeJa.Infrastructure.Migrations
                 column: "FornecedorId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PushInscricoes_Endpoint",
+                table: "PushInscricoes",
+                column: "Endpoint",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PushInscricoes_UsuarioId",
+                table: "PushInscricoes",
+                column: "UsuarioId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_AprovacaoTokenHash",
+                table: "Usuarios",
+                column: "AprovacaoTokenHash");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_AtivacaoTokenHash",
+                table: "Usuarios",
+                column: "AtivacaoTokenHash");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_CodigoConvite",
+                table: "Usuarios",
+                column: "CodigoConvite",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_ContratanteId",
+                table: "Usuarios",
+                column: "ContratanteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_Cpf",
+                table: "Usuarios",
+                column: "Cpf",
+                unique: true,
+                filter: "[Cpf] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Usuarios_Email",
                 table: "Usuarios",
                 column: "Email",
-                unique: true);
+                unique: true,
+                filter: "[Email] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_FornecedorId",
+                table: "Usuarios",
+                column: "FornecedorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_IndicadoPorId",
+                table: "Usuarios",
+                column: "IndicadoPorId");
         }
 
         /// <inheritdoc />
@@ -388,6 +538,9 @@ namespace CoffeeJa.Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Avaliacoes");
+
+            migrationBuilder.DropTable(
+                name: "Convites");
 
             migrationBuilder.DropTable(
                 name: "EventosPedido");
@@ -400,6 +553,12 @@ namespace CoffeeJa.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Notificacoes");
+
+            migrationBuilder.DropTable(
+                name: "PushInscricoes");
+
+            migrationBuilder.DropTable(
+                name: "Usuarios");
 
             migrationBuilder.DropTable(
                 name: "Pedidos");
@@ -415,9 +574,6 @@ namespace CoffeeJa.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Contratantes");
-
-            migrationBuilder.DropTable(
-                name: "Usuarios");
         }
     }
 }

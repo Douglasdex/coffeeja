@@ -7,9 +7,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Carregando, ChatSinal, DemandaCard, Descartaveis, ErroBox, Restricoes, Secao, opcoesRestricao, restricaoLabels } from "../components/common";
 import { LocationPicker, type Local } from "../components/LocationPicker";
 import { PushToggle } from "../components/PushToggle";
+import { AcessosFornecedor } from "./Equipe";
 import { PropostaChat } from "../components/PropostaChat";
 import { useAuth } from "../lib/auth";
-import { dataCurta, dataLonga, hora, moeda } from "../lib/format";
+import { dataCurta, dataHora, dataLonga, hora, moeda } from "../lib/format";
 import { StatusDemandaBadge, StatusPropostaBadge, labelEstilo } from "../lib/labels";
 import { useToast } from "../lib/toast";
 
@@ -119,6 +120,7 @@ export function FornecedorDemanda() {
         </div>
         <div className="flex flex-wrap gap-2"><Restricoes mask={x.restricoes} /><Descartaveis mask={x.descartaveis} /></div>
         {x.observacoes && <p className="rounded-xl bg-muted/60 p-3 text-sm">{x.observacoes}</p>}
+        {x.solicitadoPor && <p className="text-xs text-muted-foreground">Solicitado por {x.solicitadoPor}{x.solicitanteSetor ? ` · ${x.solicitanteSetor}` : ""} em {dataHora(x.criadoEm)}</p>}
       </CardContent></Card>
 
       {minha ? (
@@ -277,6 +279,8 @@ export function FornecedorPerfil() {
           </CardContent></Card>
         </div>
       </Secao>
+
+      {usuario?.funcao === "AdminConta" && <AcessosFornecedor />}
 
       <PushToggle />
       <div className="space-y-2 pt-2">

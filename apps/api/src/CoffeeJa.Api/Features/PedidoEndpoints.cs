@@ -12,6 +12,8 @@ namespace CoffeeJa.Api.Features;
 public record AtualizarStatusRequest(StatusPedido Status);
 public record AvaliacaoRequest(int Nota, bool Pontual, string? Comentario);
 public record EventoDto(string Descricao, DateTime Em);
+/// <summary>Registro de quem fez a ação na empresa (nome, setor, data e hora).</summary>
+public record QuemDto(string Nome, string? Setor, DateTime Em);
 public record ContatoDto(string Nome, string? Telefone, string? Email);
 
 public record PedidoResumoDto(Guid Id, Guid DemandaId, string Titulo, DateOnly DataEvento, TimeOnly HoraInicio, string Cidade, int NumeroPessoas,
@@ -20,7 +22,7 @@ public record PedidoResumoDto(Guid Id, Guid DemandaId, string Titulo, DateOnly D
 public record PedidoDetalheDto(Guid Id, Guid DemandaId, Guid PropostaId, string Titulo, DateOnly DataEvento, TimeOnly HoraInicio, string Endereco,
     string Cidade, int NumeroPessoas, string Cardapio, decimal Valor, StatusPedido Status, StatusPagamento StatusPagamento, string ProvedorPagamento,
     string? NotaFiscalNumero, string? NotaFiscalNomeOriginal, DateTime? NotaFiscalEnviadaEm, ContatoDto Contraparte, bool Avaliado,
-    IEnumerable<EventoDto> Eventos, StatusPedido[] ProximosStatus);
+    IEnumerable<EventoDto> Eventos, StatusPedido[] ProximosStatus, QuemDto? SolicitadoPor, QuemDto? ContratadoPor);
 
 public static class PedidoEndpoints
 {
@@ -40,7 +42,7 @@ public static class PedidoEndpoints
                 .OrderByDescending(p => p.CriadoEm)
                 .Select(p => new PedidoResumoDto(p.Id, p.DemandaId, p.Demanda.Titulo, DateOnly.FromDateTime(p.Demanda.DataEvento),
                     TimeOnly.FromTimeSpan(p.Demanda.HoraInicio), p.Demanda.Cidade, p.Demanda.NumeroPessoas, p.Valor, p.Status, p.StatusPagamento,
-                    p.NotaFiscalArquivo != null, ehForn ? p.Demanda.Contratante.Empresa : p.Proposta.Fornecedor.NomeFantasia, p.CriadoEm)).ToListAsync();
+                    p.NotaFiscalArquivo != null, ehForn ? p.Demanda.Contratante.NomeFantasia ?? p.Demanda.Contratante.Empresa : p.Proposta.Fornecedor.NomeFantasia, p.CriadoEm)).ToListAsync();
         });
 
         g.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db) =>
@@ -48,14 +50,20 @@ public static class PedidoEndpoints
             var p = await Carregar(db, id, u);
             if (p is null) return Results.NotFound();
             var souForn = u.FornecedorId() is not null;
+            // Contato da outra parte: pessoa que contratou (lado cliente) ou titular do buffet.
+            var contatoId = souForn ? (p.ContratadoPorId ?? p.Demanda.SolicitanteId ?? p.Demanda.Contratante.UsuarioId) : p.Proposta.Fornecedor.UsuarioId;
+            var pessoa = await db.Usuarios.AsNoTracking().Where(x => x.Id == contatoId).Select(x => new { x.Nome, x.Whatsapp, x.Telefone, x.Email }).FirstOrDefaultAsync();
+            var tel = pessoa?.Whatsapp ?? pessoa?.Telefone;
             var contato = souForn
-                ? new ContatoDto(p.Demanda.Contratante.Empresa, p.Demanda.Contratante.Usuario.Telefone, p.Demanda.Contratante.Usuario.Email)
-                : new ContatoDto(p.Proposta.Fornecedor.NomeFantasia, p.Proposta.Fornecedor.Usuario.Telefone, p.Proposta.Fornecedor.Usuario.Email);
+                ? new ContatoDto($"{p.Demanda.Contratante.NomeFantasia ?? p.Demanda.Contratante.Empresa}{(pessoa is null ? "" : " · " + pessoa.Nome)}", tel, pessoa?.Email)
+                : new ContatoDto(p.Proposta.Fornecedor.NomeFantasia, tel, pessoa?.Email);
             var avaliado = await db.Avaliacoes.AnyAsync(a => a.PedidoId == id);
             return Results.Ok(new PedidoDetalheDto(p.Id, p.DemandaId, p.PropostaId, p.Demanda.Titulo, DateOnly.FromDateTime(p.Demanda.DataEvento),
                 TimeOnly.FromTimeSpan(p.Demanda.HoraInicio), p.Demanda.Endereco, p.Demanda.Cidade, p.Demanda.NumeroPessoas, p.Proposta.Cardapio, p.Valor,
                 p.Status, p.StatusPagamento, p.ProvedorPagamento, p.NotaFiscalNumero, p.NotaFiscalNomeOriginal, p.NotaFiscalEnviadaEm, contato, avaliado,
-                p.Eventos.OrderBy(e => e.CriadoEm).Select(e => new EventoDto(e.Descricao, e.CriadoEm)), ProximosPermitidos(p, souForn)));
+                p.Eventos.OrderBy(e => e.CriadoEm).Select(e => new EventoDto(e.Descricao, e.CriadoEm)), ProximosPermitidos(p, souForn),
+                p.Demanda.SolicitanteNome is null ? null : new QuemDto(p.Demanda.SolicitanteNome, p.Demanda.SolicitanteSetor, p.Demanda.CriadoEm),
+                p.ContratadoPorNome is null ? null : new QuemDto(p.ContratadoPorNome, p.ContratadoPorSetor, p.CriadoEm)));
         });
 
         // Fornecedor avança o status (preparo → saiu → entregue); contratante conclui.
@@ -71,8 +79,8 @@ public static class PedidoEndpoints
             p.Eventos.Add(new EventoPedido { Descricao = DescricaoStatus(r.Status) });
             if (r.Status == StatusPedido.Concluido) p.Demanda.Status = StatusDemanda.Concluida;
             if (r.Status == StatusPedido.Cancelado) p.Demanda.Status = StatusDemanda.Cancelada;
-            var destino = souForn ? p.Demanda.Contratante.UsuarioId : p.Proposta.Fornecedor.UsuarioId;
-            notif.Notificar(destino, DescricaoStatus(r.Status), p.Demanda.Titulo, souForn ? $"/contratante/pedidos/{p.Id}" : $"/fornecedor/pedidos/{p.Id}");
+            if (souForn) await notif.NotificarContratanteAsync(p.ContratanteId, p.ContratadoPorId, DescricaoStatus(r.Status), p.Demanda.Titulo, $"/contratante/pedidos/{p.Id}");
+            else await notif.NotificarFornecedorAsync(p.FornecedorId, DescricaoStatus(r.Status), p.Demanda.Titulo, $"/fornecedor/pedidos/{p.Id}");
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
@@ -97,8 +105,8 @@ public static class PedidoEndpoints
             p.NotaFiscalEnviadaEm = DateTime.UtcNow;
             p.Eventos.Add(new EventoPedido { Descricao = "Nota fiscal anexada" });
             var souForn = u.FornecedorId() is not null;
-            notif.Notificar(souForn ? p.Demanda.Contratante.UsuarioId : p.Proposta.Fornecedor.UsuarioId, "Nota fiscal anexada", p.Demanda.Titulo,
-                souForn ? $"/contratante/pedidos/{p.Id}" : $"/fornecedor/pedidos/{p.Id}");
+            if (souForn) await notif.NotificarContratanteAsync(p.ContratanteId, p.ContratadoPorId, "Nota fiscal anexada", p.Demanda.Titulo, $"/contratante/pedidos/{p.Id}");
+            else await notif.NotificarFornecedorAsync(p.FornecedorId, "Nota fiscal anexada", p.Demanda.Titulo, $"/fornecedor/pedidos/{p.Id}");
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         }).DisableAntiforgery();
@@ -137,8 +145,8 @@ public static class PedidoEndpoints
         var fid = u.FornecedorId();
         return db.Pedidos
             .Include(p => p.Eventos)
-            .Include(p => p.Demanda).ThenInclude(d => d.Contratante).ThenInclude(c => c.Usuario)
-            .Include(p => p.Proposta).ThenInclude(x => x.Fornecedor).ThenInclude(f => f.Usuario)
+            .Include(p => p.Demanda).ThenInclude(d => d.Contratante)
+            .Include(p => p.Proposta).ThenInclude(x => x.Fornecedor)
             .FirstOrDefaultAsync(p => p.Id == id && ((cid != null && p.ContratanteId == cid) || (fid != null && p.FornecedorId == fid)));
     }
 

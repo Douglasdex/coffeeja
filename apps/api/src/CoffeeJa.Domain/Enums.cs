@@ -2,6 +2,15 @@ namespace CoffeeJa.Domain;
 
 public enum Papel { Contratante = 1, Fornecedor = 2, Admin = 3 }
 
+public enum TipoConta { PessoaJuridica = 1, PessoaFisica = 2 }
+
+/// <summary>AdminConta: quem criou a conta e gerencia a equipe. Membro: funcionário PJ / acesso adicional do buffet.</summary>
+public enum FuncaoUsuario { AdminConta = 1, Membro = 2 }
+
+public enum StatusUsuario { Ativo = 1, PendenteAprovacao = 2, AguardandoAtivacao = 3, Recusado = 4, Inativo = 5 }
+
+public enum StatusConvite { Enviado = 1, Cadastrado = 2 }
+
 /// <summary>Itens descartáveis que o buffet deve fornecer.</summary>
 [Flags]
 [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonNumberEnumConverter<Descartaveis>))]

@@ -11,6 +11,9 @@ public record NotificacaoDto(Guid Id, string Titulo, string Texto, string? Link,
 public record FornecedorAdminDto(Guid Id, string NomeFantasia, string? Cnpj, string Cidade, string Uf, string Email, string? Telefone,
     bool Aprovado, bool Fundador, double NotaMedia, int TotalAvaliacoes, DateTime CriadoEm);
 public record FundadorRequest(bool Fundador);
+public record ContratanteAdminDto(Guid Id, string Tipo, string Nome, string? Documento, string Cidade, string Uf, int Usuarios, int Demandas, int Pedidos,
+    bool Ativo, string? ResponsavelNome, string? ResponsavelEmail, string? ResponsavelWhatsapp, DateTime CriadoEm);
+public record RankingConviteDto(Guid UsuarioId, string Nome, string? Empresa, string Perfil, int Enviados, int Cadastrados, DateTime? UltimoConviteEm);
 
 public static class OutrosEndpoints
 {
@@ -87,6 +90,8 @@ public static class OutrosEndpoints
             fornecedoresPendentes = await db.Fornecedores.CountAsync(f => !f.Aprovado),
             fornecedoresAtivos = await db.Fornecedores.CountAsync(f => f.Aprovado),
             contratantes = await db.Contratantes.CountAsync(),
+            convitesEnviados = await db.Convites.CountAsync(),
+            cadastrosPorConvite = await db.Usuarios.CountAsync(x => x.IndicadoPorId != null && x.Funcao == FuncaoUsuario.AdminConta),
             demandasAbertas = await db.Demandas.CountAsync(d => d.Status == StatusDemanda.Aberta || d.Status == StatusDemanda.EmNegociacao),
             pedidos = await db.Pedidos.CountAsync(),
             volume = await db.Pedidos.Where(p => p.Status != StatusPedido.Cancelado).SumAsync(p => (decimal?)p.Valor) ?? 0,
@@ -97,7 +102,9 @@ public static class OutrosEndpoints
             var q = db.Fornecedores.AsNoTracking().AsQueryable();
             if (aprovado is not null) q = q.Where(f => f.Aprovado == aprovado);
             return await q.OrderBy(f => f.Aprovado).ThenByDescending(f => f.CriadoEm).Take(200)
-                .Select(f => new FornecedorAdminDto(f.Id, f.NomeFantasia, f.Cnpj, f.Cidade, f.Uf, f.Usuario.Email, f.Usuario.Telefone,
+                .Select(f => new FornecedorAdminDto(f.Id, f.NomeFantasia, f.Cnpj, f.Cidade, f.Uf,
+                    db.Usuarios.Where(x => x.Id == f.UsuarioId).Select(x => x.Email).FirstOrDefault() ?? "",
+                    db.Usuarios.Where(x => x.Id == f.UsuarioId).Select(x => x.Whatsapp ?? x.Telefone).FirstOrDefault(),
                     f.Aprovado, f.Fundador, f.NotaMedia, f.TotalAvaliacoes, f.CriadoEm)).ToListAsync();
         });
 
@@ -108,7 +115,7 @@ public static class OutrosEndpoints
             if (!f.Aprovado)
             {
                 f.Aprovado = true;
-                notif.Notificar(f.UsuarioId, "Cadastro aprovado", "Você já pode receber demandas e enviar propostas.", "/fornecedor/demandas");
+                await notif.NotificarFornecedorAsync(f.Id, "Cadastro aprovado", "Você já pode receber demandas e enviar propostas.", "/fornecedor/demandas");
                 await db.SaveChangesAsync();
             }
             return Results.NoContent();
@@ -124,6 +131,38 @@ public static class OutrosEndpoints
         {
             var n = await db.Fornecedores.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Fundador, r.Fundador));
             return n == 0 ? Results.NotFound() : Results.NoContent();
+        });
+        a.MapGet("/contratantes", async (CoffeeJaDbContext db) =>
+            await db.Contratantes.AsNoTracking().OrderByDescending(c => c.CriadoEm).Take(300)
+                .Select(c => new ContratanteAdminDto(c.Id, c.Tipo.ToString(), c.NomeFantasia ?? c.Empresa, c.Cnpj ?? c.Cpf, c.Endereco.Cidade, c.Endereco.Uf,
+                    db.Usuarios.Count(x => x.ContratanteId == c.Id), db.Demandas.Count(d => d.ContratanteId == c.Id), db.Pedidos.Count(pd => pd.ContratanteId == c.Id),
+                    c.Ativo, db.Usuarios.Where(x => x.Id == c.UsuarioId).Select(x => x.Nome).FirstOrDefault(),
+                    db.Usuarios.Where(x => x.Id == c.UsuarioId).Select(x => x.Email).FirstOrDefault(),
+                    db.Usuarios.Where(x => x.Id == c.UsuarioId).Select(x => x.Whatsapp).FirstOrDefault(), c.CriadoEm)).ToListAsync());
+
+        a.MapPost("/contratantes/{id:guid}/suspender", async (Guid id, CoffeeJaDbContext db) =>
+            await db.Contratantes.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Ativo, false)) == 0 ? Results.NotFound() : Results.NoContent());
+
+        a.MapPost("/contratantes/{id:guid}/ativar", async (Guid id, CoffeeJaDbContext db) =>
+            await db.Contratantes.Where(x => x.Id == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Ativo, true)) == 0 ? Results.NotFound() : Results.NoContent());
+
+        // Quem mais indica: convites enviados por WhatsApp e cadastros concluídos (pelo código individual ou pelo link pessoal).
+        a.MapGet("/convites/ranking", async (CoffeeJaDbContext db) =>
+        {
+            var enviados = await db.Convites.GroupBy(c => c.ConvidanteId)
+                .Select(g => new { Id = g.Key, N = g.Count(), Ultimo = g.Max(c => c.CriadoEm) }).ToListAsync();
+            var cadastrados = await db.Usuarios.Where(x => x.IndicadoPorId != null && x.Funcao == FuncaoUsuario.AdminConta)
+                .GroupBy(x => x.IndicadoPorId!.Value).Select(g => new { Id = g.Key, N = g.Count() }).ToListAsync();
+            var ids = enviados.Select(x => x.Id).Union(cadastrados.Select(x => x.Id)).ToList();
+            var pessoas = await db.Usuarios.AsNoTracking().Include(x => x.Contratante).Include(x => x.Fornecedor).Where(x => ids.Contains(x.Id)).ToListAsync();
+            return pessoas.Select(u =>
+                {
+                    var e = enviados.FirstOrDefault(x => x.Id == u.Id);
+                    var c = cadastrados.FirstOrDefault(x => x.Id == u.Id);
+                    return new RankingConviteDto(u.Id, u.Nome, u.Contratante?.NomeFantasia ?? u.Contratante?.Empresa ?? u.Fornecedor?.NomeFantasia,
+                        u.Papel == Papel.Fornecedor ? "Buffet" : u.Contratante?.Tipo == TipoConta.PessoaFisica ? "Pessoa física" : "Empresa", e?.N ?? 0, c?.N ?? 0, e?.Ultimo);
+                })
+                .OrderByDescending(x => x.Cadastrados).ThenByDescending(x => x.Enviados).Take(50).ToList();
         });
     }
 }

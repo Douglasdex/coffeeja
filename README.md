@@ -34,7 +34,9 @@ Abra **http://localhost:5173**. Na primeira execução a API cria o banco `Coffe
 
 | Perfil | E-mail | Senha |
 |---|---|---|
-| Contratante | contratante@demo.local | Demo@12345 |
+| Empresa — administrador | contratante@demo.local | Demo@12345 |
+| Empresa — funcionário (login pelo CPF) | 111.444.777-35 | Demo@12345 |
+| Pessoa física | pf@demo.local | Demo@12345 |
 | Buffet (fundador, atende vegano/sem glúten) | buffet1@demo.local | Demo@12345 |
 | Buffet | buffet2@demo.local | Demo@12345 |
 | Buffet em Campinas (fora do raio de 50 km) | buffet3@demo.local | Demo@12345 |
@@ -81,6 +83,17 @@ Banco__MigrarNaInicializacao=true                        # aplica migrations ao 
 ```
 
 Sugestão de topologia no servidor: **Caddy** (HTTPS automático) servindo `apps/web/dist` e fazendo proxy de `/api` para o Kestrel (`dotnet publish apps/api/src/CoffeeJa.Api -c Release`, rodando como serviço systemd). A API já respeita `X-Forwarded-For/Proto`.
+
+## Contas e perfis
+
+- **Empresa (PJ):** o administrador cria a conta com dados da empresa (razão social, fantasia, CNPJ, endereço) e do responsável (nome, CPF, telefone comercial e WhatsApp). Ele cadastra **funcionários** (nome, CPF, setor, telefones, superior imediato). O **superior aprova por link no WhatsApp** (página pública, uso único); depois o admin envia o acesso e o funcionário cria a senha. Login por e-mail ou **CPF**. Cada demanda/pedido registra **quem solicitou e quem contratou** (nome, setor, data e hora); a contratação é em nome da empresa.
+- **Pessoa física:** dados pessoais, endereço e endereço da nota fiscal (mesmo ou outro). Todos os campos são obrigatórios.
+- **Buffet:** mesmos dados da empresa; botão **"Gerar outro acesso"** (nome, CPF, cargo, telefone). Hoje gratuito; a licença paga entra depois.
+- **Convites:** qualquer perfil convida por WhatsApp (botão de compartilhar no topo). O texto destaca as vantagens do app. O admin vê o **ranking de quem mais convidou**.
+- **WhatsApp:** os envios abrem o WhatsApp com a mensagem pronta (`wa.me`). O disparo 100% automático exige a API oficial do WhatsApp Business (ponto de integração futuro).
+- Configure `Plataforma__UrlPublica` em produção (os links enviados usam esse endereço).
+
+> Se você já tinha um banco local de versões anteriores, rode `npm run db:reset` uma vez (o modelo de contas mudou).
 
 ## Tempo real, push e admin
 

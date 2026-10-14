@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Carregando, ErroBox } from "../components/common";
 import { useAuth } from "../lib/auth";
-import { dataCurta, dataLonga, haQuanto, hora, moeda } from "../lib/format";
+import { dataCurta, dataHora, dataLonga, haQuanto, hora, moeda } from "../lib/format";
 import { StatusPedidoBadge, labelPagamento, labelProximoStatus } from "../lib/labels";
 import { useToast } from "../lib/toast";
 
@@ -128,6 +128,14 @@ export function PedidoDetalhe() {
         <div className="flex items-center gap-2 font-semibold"><Banknote className="h-5 w-5 text-muted-foreground" />Pagamento</div>
         <p className="text-sm text-muted-foreground">{labelPagamento[p.statusPagamento]}. {p.provedorPagamento === "Manual" && "Neste momento o pagamento é feito fora da plataforma — inclua a nota fiscal aqui para manter o registro."}</p>
       </CardContent></Card>
+
+      {(p.solicitadoPor || p.contratadoPor) && (
+        <Card><CardHeader><CardTitle>Registro da contratação</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
+          <p className="text-muted-foreground">Contratado em nome da empresa. Responsáveis pelo processo:</p>
+          {p.solicitadoPor && <div><div className="text-xs text-muted-foreground">Solicitado por</div><div className="font-semibold">{p.solicitadoPor.nome}{p.solicitadoPor.setor ? ` · ${p.solicitadoPor.setor}` : ""}</div><div className="text-muted-foreground">{dataHora(p.solicitadoPor.em)}</div></div>}
+          {p.contratadoPor && <div><div className="text-xs text-muted-foreground">Contratado por</div><div className="font-semibold">{p.contratadoPor.nome}{p.contratadoPor.setor ? ` · ${p.contratadoPor.setor}` : ""}</div><div className="text-muted-foreground">{dataHora(p.contratadoPor.em)}</div></div>}
+        </CardContent></Card>
+      )}
 
       <Card><CardContent className="space-y-2">
         <div className="text-sm text-muted-foreground">{souForn ? "Cliente" : "Fornecedor"}</div>

@@ -19,7 +19,8 @@ public record DemandaResumoDto(Guid Id, string Titulo, DateOnly DataEvento, Time
 
 public record DemandaDetalheDto(Guid Id, string Titulo, DateOnly DataEvento, TimeOnly HoraInicio, string? Endereco, string Cidade, string Uf,
     double Latitude, double Longitude, int NumeroPessoas, Restricoes Restricoes, EstiloCoffee Estilo, string? Observacoes, DateTime? PrazoPropostas,
-    StatusDemanda Status, string Empresa, DateTime CriadoEm, Guid? PedidoId, Descartaveis Descartaveis);
+    StatusDemanda Status, string Empresa, DateTime CriadoEm, Guid? PedidoId, Descartaveis Descartaveis,
+    string? SolicitadoPor, string? SolicitanteSetor);
 
 public static class DemandaEndpoints
 {
@@ -46,6 +47,7 @@ public static class DemandaEndpoints
                 Titulo = r.Titulo.Trim(), DataEvento = data, HoraInicio = r.HoraInicio.ToTimeSpan(),
                 Endereco = r.Endereco.Trim(), Cidade = r.Cidade.Trim(), Uf = r.Uf!.ToUpperInvariant(),
                 Latitude = r.Latitude, Longitude = r.Longitude, NumeroPessoas = r.NumeroPessoas,
+                SolicitanteId = u.UsuarioId(), SolicitanteNome = u.NomeUsuario(), SolicitanteSetor = u.SetorUsuario(),
                 Restricoes = r.Restricoes, Descartaveis = r.Descartaveis, Estilo = r.Estilo, Observacoes = r.Observacoes, PrazoPropostas = r.PrazoPropostas,
             };
             db.Demandas.Add(d);
@@ -55,13 +57,14 @@ public static class DemandaEndpoints
             var (minLat, maxLat, minLon, maxLon) = Geo.CaixaDelimitadora(d.Latitude, d.Longitude, maxKm);
             var candidatos = await db.Fornecedores.AsNoTracking()
                 .Where(f => f.Aprovado && f.Latitude >= minLat && f.Latitude <= maxLat && f.Longitude >= minLon && f.Longitude <= maxLon)
-                .Select(f => new { f.UsuarioId, f.Latitude, f.Longitude, f.RaioAtendimentoKm }).ToListAsync();
-            foreach (var f in candidatos.Where(f => Geo.DistanciaKm(d.Latitude, d.Longitude, f.Latitude, f.Longitude) <= Math.Min(f.RaioAtendimentoKm, maxKm)))
-                notif.Notificar(f.UsuarioId, $"Novo coffee break para {d.NumeroPessoas} pessoas",
+                .Select(f => new { f.Id, f.Latitude, f.Longitude, f.RaioAtendimentoKm }).ToListAsync();
+            var proximos = candidatos.Where(f => Geo.DistanciaKm(d.Latitude, d.Longitude, f.Latitude, f.Longitude) <= Math.Min(f.RaioAtendimentoKm, maxKm)).Select(f => f.Id).ToList();
+            foreach (var fid in proximos)
+                await notif.NotificarFornecedorAsync(fid, $"Novo coffee break para {d.NumeroPessoas} pessoas",
                     $"{d.Cidade} · {r.DataEvento:dd/MM} às {r.HoraInicio:HH\\:mm}", $"/fornecedor/demandas/{d.Id}");
 
             await db.SaveChangesAsync();
-            return Results.Created($"/api/demandas/{d.Id}", new { d.Id, notificados = candidatos.Count });
+            return Results.Created($"/api/demandas/{d.Id}", new { d.Id, notificados = proximos.Count });
         }).RequireAuthorization(Politicas.Contratante);
 
         // Contratante: minhas demandas
@@ -96,7 +99,7 @@ public static class DemandaEndpoints
                 .Select(d => new
                 {
                     d.Id, d.Titulo, d.DataEvento, d.HoraInicio, d.Cidade, d.Uf, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Status, d.CriadoEm,
-                    d.Latitude, d.Longitude, d.Descartaveis, Empresa = d.Contratante.Empresa,
+                    d.Latitude, d.Longitude, d.Descartaveis, Empresa = d.Contratante.NomeFantasia ?? d.Contratante.Empresa,
                     Total = d.Propostas.Count(p => p.Status != StatusProposta.Retirada),
                     Minha = d.Propostas.Where(p => p.FornecedorId == f.Id).Select(p => (Guid?)p.Id).FirstOrDefault(),
                 }).ToListAsync();
@@ -136,7 +139,7 @@ public static class DemandaEndpoints
             var endereco = ehDono || ehVencedor || u.IsInRole(nameof(Papel.Admin)) ? d.Endereco : null;
             var (lat, lon) = endereco is null ? (Math.Round(d.Latitude, 2), Math.Round(d.Longitude, 2)) : (d.Latitude, d.Longitude);
             return Results.Ok(new DemandaDetalheDto(d.Id, d.Titulo, DateOnly.FromDateTime(d.DataEvento), TimeOnly.FromTimeSpan(d.HoraInicio), endereco,
-                d.Cidade, d.Uf, lat, lon, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Observacoes, d.PrazoPropostas, d.Status, d.Contratante.Empresa, d.CriadoEm, pedidoId, d.Descartaveis));
+                d.Cidade, d.Uf, lat, lon, d.NumeroPessoas, d.Restricoes, d.Estilo, d.Observacoes, d.PrazoPropostas, d.Status, d.Contratante.NomeFantasia ?? d.Contratante.Empresa, d.CriadoEm, pedidoId, d.Descartaveis, d.SolicitanteNome, d.SolicitanteSetor));
         });
 
         g.MapPost("/{id:guid}/cancelar", async (Guid id, ClaimsPrincipal u, CoffeeJaDbContext db, INotificador notif) =>
@@ -151,7 +154,7 @@ public static class DemandaEndpoints
             foreach (var p in d.Propostas.Where(p => p.Status is StatusProposta.Enviada or StatusProposta.EmAjuste))
             {
                 p.Status = StatusProposta.Recusada;
-                notif.Notificar(p.Fornecedor.UsuarioId, "Demanda cancelada", d.Titulo);
+                await notif.NotificarFornecedorAsync(p.FornecedorId, "Demanda cancelada", d.Titulo);
             }
             await db.SaveChangesAsync();
             return Results.NoContent();

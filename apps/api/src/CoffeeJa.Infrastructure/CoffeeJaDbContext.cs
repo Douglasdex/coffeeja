@@ -17,6 +17,7 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
     public DbSet<Mensagem> Mensagens => Set<Mensagem>();
     public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
     public DbSet<PushInscricao> PushInscricoes => Set<PushInscricao>();
+    public DbSet<Convite> Convites => Set<Convite>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -26,28 +27,62 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
 
         b.Entity<Usuario>(e =>
         {
-            e.HasIndex(x => x.Email).IsUnique();
+            e.HasIndex(x => x.Email).IsUnique().HasFilter("[Email] IS NOT NULL");
+            e.HasIndex(x => x.Cpf).IsUnique().HasFilter("[Cpf] IS NOT NULL");
+            e.HasIndex(x => x.CodigoConvite).IsUnique();
+            e.HasIndex(x => x.ContratanteId);
+            e.HasIndex(x => x.FornecedorId);
+            e.HasIndex(x => x.IndicadoPorId);
             e.Property(x => x.Nome).HasMaxLength(150);
             e.Property(x => x.Email).HasMaxLength(200);
-            e.Property(x => x.Telefone).HasMaxLength(30);
-            e.HasOne(x => x.Contratante).WithOne(x => x.Usuario).HasForeignKey<Contratante>(x => x.UsuarioId);
-            e.HasOne(x => x.Fornecedor).WithOne(x => x.Usuario).HasForeignKey<Fornecedor>(x => x.UsuarioId);
+            e.Property(x => x.Cpf).HasMaxLength(11);
+            e.Property(x => x.Telefone).HasMaxLength(20);
+            e.Property(x => x.Whatsapp).HasMaxLength(20);
+            e.Property(x => x.Cargo).HasMaxLength(100);
+            e.Property(x => x.Setor).HasMaxLength(100);
+            e.Property(x => x.SuperiorNome).HasMaxLength(150);
+            e.Property(x => x.SuperiorWhatsapp).HasMaxLength(20);
+            e.Property(x => x.AprovacaoTokenHash).HasMaxLength(64);
+            e.Property(x => x.AtivacaoTokenHash).HasMaxLength(64);
+            e.Property(x => x.MotivoRecusa).HasMaxLength(500);
+            e.Property(x => x.CodigoConvite).HasMaxLength(12);
+            e.HasIndex(x => x.AprovacaoTokenHash);
+            e.HasIndex(x => x.AtivacaoTokenHash);
+            e.HasOne(x => x.Contratante).WithMany().HasForeignKey(x => x.ContratanteId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.NoAction);
         });
 
         b.Entity<Contratante>(e =>
         {
             e.Property(x => x.Empresa).HasMaxLength(200);
-            e.Property(x => x.Cnpj).HasMaxLength(18);
+            e.Property(x => x.NomeFantasia).HasMaxLength(200);
+            e.Property(x => x.Cnpj).HasMaxLength(14);
+            e.Property(x => x.Cpf).HasMaxLength(11);
+            e.HasIndex(x => x.Cnpj).IsUnique().HasFilter("[Cnpj] IS NOT NULL");
+            e.ComplexProperty(x => x.Endereco, ConfigEndereco);
+            e.ComplexProperty(x => x.EnderecoNotaFiscal, ConfigEndereco);
         });
 
         b.Entity<Fornecedor>(e =>
         {
             e.Property(x => x.NomeFantasia).HasMaxLength(200);
-            e.Property(x => x.Cnpj).HasMaxLength(18);
+            e.Property(x => x.RazaoSocial).HasMaxLength(200);
+            e.Property(x => x.Cnpj).HasMaxLength(14);
+            e.HasIndex(x => x.Cnpj).IsUnique().HasFilter("[Cnpj] IS NOT NULL");
             e.Property(x => x.Descricao).HasMaxLength(1000);
             e.Property(x => x.Cidade).HasMaxLength(100);
             e.Property(x => x.Uf).HasMaxLength(2);
+            e.ComplexProperty(x => x.Endereco, ConfigEndereco);
             e.HasIndex(x => new { x.Latitude, x.Longitude });
+        });
+
+        b.Entity<Convite>(e =>
+        {
+            e.HasIndex(x => x.Codigo).IsUnique();
+            e.HasIndex(x => x.ConvidanteId);
+            e.Property(x => x.Codigo).HasMaxLength(12);
+            e.Property(x => x.Telefone).HasMaxLength(20);
+            e.Property(x => x.NomeConvidado).HasMaxLength(150);
         });
 
         b.Entity<ModeloCardapio>(e =>
@@ -64,6 +99,8 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
             e.Property(x => x.Cidade).HasMaxLength(100);
             e.Property(x => x.Uf).HasMaxLength(2);
             e.Property(x => x.Observacoes).HasMaxLength(2000);
+            e.Property(x => x.SolicitanteNome).HasMaxLength(150);
+            e.Property(x => x.SolicitanteSetor).HasMaxLength(100);
             e.HasOne(x => x.Contratante).WithMany().HasForeignKey(x => x.ContratanteId).OnDelete(DeleteBehavior.NoAction);
             e.HasIndex(x => new { x.Status, x.DataEvento });
             e.HasIndex(x => new { x.Latitude, x.Longitude });
@@ -86,6 +123,8 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
             e.Property(x => x.Valor).HasPrecision(12, 2);
             e.Property(x => x.ComissaoPercentual).HasPrecision(5, 2);
             e.Property(x => x.ProvedorPagamento).HasMaxLength(30);
+            e.Property(x => x.ContratadoPorNome).HasMaxLength(150);
+            e.Property(x => x.ContratadoPorSetor).HasMaxLength(100);
             e.Property(x => x.NotaFiscalNumero).HasMaxLength(50);
             e.Property(x => x.NotaFiscalArquivo).HasMaxLength(300);
             e.Property(x => x.NotaFiscalNomeOriginal).HasMaxLength(260);
@@ -132,5 +171,16 @@ public class CoffeeJaDbContext(DbContextOptions<CoffeeJaDbContext> options) : Db
             e.HasIndex(x => x.Endpoint).IsUnique();
             e.HasIndex(x => x.UsuarioId);
         });
+    }
+
+    private static void ConfigEndereco(Microsoft.EntityFrameworkCore.Metadata.Builders.ComplexPropertyBuilder<Endereco> c)
+    {
+        c.Property(x => x.Cep).HasMaxLength(8);
+        c.Property(x => x.Logradouro).HasMaxLength(200);
+        c.Property(x => x.Numero).HasMaxLength(20);
+        c.Property(x => x.Complemento).HasMaxLength(100);
+        c.Property(x => x.Bairro).HasMaxLength(100);
+        c.Property(x => x.Cidade).HasMaxLength(100);
+        c.Property(x => x.Uf).HasMaxLength(2);
     }
 }
