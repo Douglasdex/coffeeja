@@ -1,12 +1,21 @@
 {
   "name": "coffeeja",
   "private": true,
-  "workspaces": ["apps/web", "packages/*"],
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev:all": "concurrently -k -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev\"",
     "dev": "npm run dev --workspace @coffeeja/web",
     "dev:api": "dotnet watch run --project apps/api/src/CoffeeJa.Api --launch-profile http",
+    "db:reset": "dotnet ef database drop -f -p apps/api/src/CoffeeJa.Infrastructure -s apps/api/src/CoffeeJa.Api",
     "build": "npm run build --workspace @coffeeja/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test:api": "dotnet test apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
   }
 }

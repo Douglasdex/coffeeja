@@ -24,17 +24,28 @@ packages/
 
 ## Rodando em desenvolvimento
 
-Copie `apps/api/src/CoffeeJa.Api/appsettings.Development.example.json` para `appsettings.Development.json` (ignorado pelo git; pode conter chaves VAPID de teste).
-
 ```bash
 npm install
-npm run dev:api     # API em http://localhost:5080 (aplica migrations e cria o admin de dev)
-npm run dev         # Web em http://localhost:5173 (proxy /api → 5080)
-npm run test:api    # testes do backend
+npm run setup      # cria appsettings.Development.json, restaura pacotes .NET, checa o LocalDB
+npm run dev:all    # API (http://localhost:5080) + Web (http://localhost:5173) juntos
 ```
 
-Admin de desenvolvimento: `admin@coffeeja.local` / `Admin@12345` (só em `appsettings.Development.json`).
-Em desenvolvimento fornecedores são aprovados automaticamente; em produção o admin aprova em `POST /api/admin/fornecedores/{id}/aprovar`.
+Abra **http://localhost:5173**. Na primeira execução a API cria o banco `CoffeeJa` no LocalDB e carrega dados de demonstração.
+
+| Perfil | E-mail | Senha |
+|---|---|---|
+| Contratante | contratante@demo.local | Demo@12345 |
+| Buffet (fundador, atende vegano/sem glúten) | buffet1@demo.local | Demo@12345 |
+| Buffet | buffet2@demo.local | Demo@12345 |
+| Buffet em Campinas (fora do raio de 50 km) | buffet3@demo.local | Demo@12345 |
+| Admin | admin@coffeeja.local | Admin@12345 |
+
+Dica: abra duas janelas (uma anônima) — contratante em uma, buffet na outra — para ver propostas, chat e notificações em tempo real.
+
+Outros comandos: `npm run dev:api`, `npm run dev`, `npm run test:api`, `npm run typecheck`, `npm run db:reset` (apaga o banco; é recriado ao subir a API).
+Para outro SQL Server, ajuste `ConnectionStrings:Default` em `appsettings.Development.json`. Para não carregar dados demo, use `"Banco": { "DadosDemo": false }`.
+
+Em desenvolvimento fornecedores são aprovados automaticamente; em produção o admin aprova em `/admin`.
 
 ### Migrations
 

@@ -110,6 +110,7 @@ if (app.Configuration.GetValue("Banco:MigrarNaInicializacao", false))
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CoffeeJaDbContext>();
     await db.Database.MigrateAsync();
+    if (app.Configuration.GetValue("Banco:DadosDemo", false)) await DadosDemo.GerarAsync(db);
     if (!string.IsNullOrWhiteSpace(plataforma.AdminEmail) && !string.IsNullOrWhiteSpace(plataforma.AdminSenha)
         && !await db.Usuarios.AnyAsync(u => u.Papel == Papel.Admin))
     {
